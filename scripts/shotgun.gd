@@ -5,7 +5,7 @@ const FLASH_SCRIPT := preload("res://scripts/muzzle_flash.gd")
 
 @export var pellet_count := 20
 @export var pellet_damage := 25.0
-@export var fire_rate := 4.0
+@export var fire_rate := 1
 @export var shoot_range := 100.0
 @export var spread_degrees := 12.0
 @export var spread_falloff := 1.0
@@ -30,7 +30,7 @@ const FLASH_SCRIPT := preload("res://scripts/muzzle_flash.gd")
 @export var bob_rotation_scale := 0.6
 
 # --- ИНТЕНСИВНОСТЬ ОТДАЧИ И FOV-ШЕЙКА (настраивай под дробовик) ---
-@export var camera_shake_intensity := 1.5
+@export var camera_shake_intensity := 1
 
 var can_fire := true
 var _model: Node3D

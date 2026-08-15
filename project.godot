@@ -24,6 +24,10 @@ SwarmManager="*uid://btjnjrt0wu5hj"
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/gdterm/plugin.cfg")
+
 [filesystem]
 
 import/blender/enabled=false
