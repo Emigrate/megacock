@@ -22,18 +22,19 @@ const HUD_SCRIPT := preload("res://scripts/player_hud.gd")
 @export var noclip_speed := 35.0
 @export var max_hp := 100
 
-var hp := max_hp
+# --- РОСТ ПЕРСОНАЖА ---
+@export var stand_height: float = 2.5    # ← СДЕЛАЙ ПОБОЛЬШЕ (2.0 или 2.2)
+@export var crouch_height: float = 1.3
 
-const STAND_HEIGHT: float = 1.8
-const CROUCH_HEIGHT: float = 1.0
+var hp := max_hp
 
 @onready var camera: Camera3D = $Head/CameraShake/Camera3D
 @onready var camera_shake: Node3D = $Head/CameraShake
 @onready var collision: CollisionShape3D = $CollisionShape3D
 
 var pitch: float = 0.0
-var current_height: float = STAND_HEIGHT
-var target_height: float = STAND_HEIGHT
+var current_height: float = stand_height
+var target_height: float = stand_height
 var is_crouching: bool = false
 
 var bob_time := 0.0
@@ -66,11 +67,9 @@ var _animation_players: Array = []
 var _fov_slider: HSlider
 var _fov_value_label: Label
 
-# --- НАСТРОЙКИ ОТДАЧИ ПО Z (НАЗАД) ---
+# --- НАСТРОЙКИ ОТДАЧИ ---
 @export var recoil_z_multiplier := 3.0
 @export var recoil_z_decay := 6.0
-
-# --- НАСТРОЙКА FOV-ШЕЙКА ---
 @export var fov_shake_multiplier := 1.0
 @export var fov_shake_decay := 15.0
 
@@ -83,12 +82,12 @@ func _ready() -> void:
 
 	var capsule := CapsuleShape3D.new()
 	capsule.radius = 0.5
-	capsule.height = STAND_HEIGHT
+	capsule.height = stand_height
 	collision.shape = capsule
-	collision.position.y = STAND_HEIGHT * 0.5
+	collision.position.y = stand_height * 0.5
 
 	stand_check.radius = 0.5
-	stand_check.height = STAND_HEIGHT
+	stand_check.height = stand_height
 
 	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 
@@ -191,6 +190,10 @@ func _ready() -> void:
 
 	_create_pause_ui()
 	_collect_animation_players(get_tree().root)
+
+	# --- Устанавливаем текущую высоту ---
+	current_height = stand_height
+	target_height = stand_height
 
 
 func _create_pistol_node() -> Node3D:
@@ -314,7 +317,7 @@ func _toggle_pause() -> void:
 
 
 func _process(delta: float) -> void:
-	# --- ОТДАЧА ПО Z (КАМЕРА НАЗАД) ---
+	# --- ОТДАЧА ПО Z ---
 	var shake_pos := Vector3.ZERO
 	if abs(_recoil_z) > 0.001:
 		shake_pos.z -= _recoil_z
@@ -330,19 +333,16 @@ func _process(delta: float) -> void:
 
 	if camera_shake:
 		camera_shake.position = shake_pos
-		camera_shake.rotation = Vector3.ZERO  # ротейшн отключён полностью
+		camera_shake.rotation = Vector3.ZERO
 	else:
 		print("⚠️ camera_shake узел не найден!")
 
-	# Если всё затухло — обнуляем
 	if abs(_recoil_z) <= 0.001 and abs(_fov_shake) <= 0.001:
 		camera_shake.position = Vector3.ZERO
 
 
 func add_camera_shake(intensity: float) -> void:
-	# Отдача по Z
 	_recoil_z = max(_recoil_z, intensity * recoil_z_multiplier)
-	# FOV-шейк
 	_fov_shake = max(_fov_shake, intensity * fov_shake_multiplier)
 
 
@@ -372,11 +372,11 @@ func _physics_process(delta: float) -> void:
 	if Input.is_action_pressed("crouch"):
 		if not is_crouching:
 			is_crouching = true
-			target_height = CROUCH_HEIGHT
+			target_height = crouch_height
 	else:
 		if is_crouching and can_stand_up():
 			is_crouching = false
-			target_height = STAND_HEIGHT
+			target_height = stand_height
 
 	if _dash_timer > 0.0:
 		_dash_timer -= delta
@@ -395,7 +395,7 @@ func _physics_process(delta: float) -> void:
 		if Input.is_action_pressed("jump") and is_on_floor():
 			if is_crouching and can_stand_up():
 				is_crouching = false
-				target_height = STAND_HEIGHT
+				target_height = stand_height
 			if not is_crouching:
 				velocity.y = jump_velocity
 				var jump_fwd := -camera.global_transform.basis.z
@@ -456,7 +456,6 @@ func _physics_process(delta: float) -> void:
 		if current_weapon and current_weapon.has_method("set_bob"):
 			current_weapon.set_bob(sin(bob_time) * bob_amp, cos(bob_time) * bob_amp * 0.5, moving)
 
-	# --- FOV: базовый + даш + FOV-шейк ---
 	var fov_damp := 1.0 - exp(-10.0 * delta)
 	_fov_shift = lerpf(_fov_shift, 0.0, fov_damp)
 	camera.fov = _base_fov + _fov_shift + _fov_shake
@@ -586,7 +585,7 @@ func can_stand_up() -> bool:
 	var space := get_world_3d().direct_space_state
 	var query := PhysicsShapeQueryParameters3D.new()
 	query.shape = stand_check
-	query.transform = Transform3D(Basis(), Vector3(global_position.x, global_position.y + STAND_HEIGHT * 0.5, global_position.z))
+	query.transform = Transform3D(Basis(), Vector3(global_position.x, global_position.y + stand_height * 0.5, global_position.z))
 	query.exclude = [get_rid()]
 	return space.intersect_shape(query, 1).is_empty()
 

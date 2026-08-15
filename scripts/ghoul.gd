@@ -1,12 +1,12 @@
 extends CharacterBody3D
 
-# --- НАСТРОЙКИ (крути в инспекторе) ---
+# --- НАСТРОЙКИ ---
 @export var speed := 4.0
 @export var hp := 50
 @export var damage := 10.0
 @export var attack_cooldown := 0.8
-@export var detection_distance := 3.0      # дистанция атаки
-@export var rotation_speed := 0.2          # скорость поворота
+@export var detection_distance := 2.0
+@export var rotation_speed := 0.2
 
 var _target: Node3D
 var _alive := true
@@ -92,19 +92,13 @@ func _physics_process(delta: float) -> void:
 		var target_angle: float = atan2(dir.x, dir.z)
 		rotation.y = lerp_angle(rotation.y, target_angle, rotation_speed)
 
-	# --- АНИМАЦИЯ АТАКИ ---
+	# --- АНИМАЦИИ ---
 	if _animated_sprite and _alive:
 		var anim: String = _animated_sprite.animation
-		
-		# Не прерываем hit и death
-		if anim == "hit" or anim == "death":
+		if anim in ["hit", "death"]:
 			return
-		
-		# Не прерываем атаку
 		if anim == "attack":
 			return
-		
-		# Запускаем атаку, если игрок близко
 		if dist < detection_distance and _can_attack:
 			_animated_sprite.play("attack")
 			_can_attack = false
