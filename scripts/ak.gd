@@ -4,7 +4,7 @@ const TRACER_SCRIPT := preload("res://scripts/tracer.gd")
 const FLASH_SCRIPT := preload("res://scripts/muzzle_flash.gd")
 
 @export var damage := 20.0
-@export var fire_rate := 6.0
+@export var fire_rate := 8.0
 @export var shoot_range := 120.0
 @export var recoil_amount := 0.08
 @export var spread_degrees := 1.5

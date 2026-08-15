@@ -1,10 +1,10 @@
 [gd_scene format=3 uid="uid://c6xveif43b3gj"]
 
-[ext_resource type="Script" uid="uid://bu4wtu6f5vqeg" path="res://scripts/player.gd" id="1_x0tsy"]
-[ext_resource type="Script" uid="uid://bbkbldmvt4g6a" path="res://scripts/pistol.gd" id="2_jh0ie"]
-[ext_resource type="PackedScene" uid="uid://c2v21m0ovy3ml" path="res://assets/models/psx_style_handgun.glb" id="3_kvhdw"]
-[ext_resource type="Texture2D" uid="uid://c0walbablexdi" path="res://assets/textures/dirt_2.png" id="4_ngold"]
-[ext_resource type="Texture2D" uid="uid://cx1u4u3j1wvcj" path="res://assets/textures/Stone wall 1.png" id="5_x4wt1"]
+[ext_resource type="Script" uid="uid://bu4wtu6f5vqeg" path="res://scripts/player.gd" id="1_tbgi4"]
+[ext_resource type="Script" uid="uid://bbkbldmvt4g6a" path="res://scripts/pistol.gd" id="2_tefeu"]
+[ext_resource type="PackedScene" uid="uid://c2v21m0ovy3ml" path="res://assets/models/psx_style_handgun.glb" id="3_o6xl0"]
+[ext_resource type="Texture2D" uid="uid://c0walbablexdi" path="res://assets/textures/dirt_2.png" id="4_tipki"]
+[ext_resource type="Texture2D" uid="uid://cx1u4u3j1wvcj" path="res://assets/textures/Stone wall 1.png" id="5_85g3d"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_fqhjb"]
 
@@ -14,12 +14,12 @@ polygons = [PackedInt32Array(1, 0, 2), PackedInt32Array(2, 0, 3), PackedInt32Arr
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_lxk3t"]
 albedo_color = Color(0.2784314, 0.2784314, 0.2784314, 1)
-albedo_texture = ExtResource("4_ngold")
+albedo_texture = ExtResource("4_tipki")
 texture_filter = 0
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_60rxr"]
 albedo_color = Color(0.2784314, 0.2784314, 0.2784314, 1)
-albedo_texture = ExtResource("5_x4wt1")
+albedo_texture = ExtResource("5_85g3d")
 uv1_scale = Vector3(0.265, 0.265, 0.265)
 uv1_triplanar = true
 uv1_triplanar_sharpness = 1.0352668
@@ -36,7 +36,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -104.56091, 12.293012, -42.01
 transform = Transform3D(-0.6811342, 0, 0.7321586, 0, 1, 0, -0.7321586, 0, -0.6811342, 0, 1.736402, 0)
 collision_layer = 3
 collision_mask = 3
-script = ExtResource("1_x0tsy")
+script = ExtResource("1_tbgi4")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Player/CharacterBody3D" unique_id=1147056309]
 shape = SubResource("CapsuleShape3D_fqhjb")
@@ -48,10 +48,10 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.7453537, 0)
 
 [node name="Weapon" type="Node3D" parent="Player/CharacterBody3D/Head/Camera3D" unique_id=1263216608]
 transform = Transform3D(0.9968784, -0.07895224, 0, 0.07895224, 0.9968784, 0, 0, 0, 1, -0.35411918, 0, -2.3283064e-10)
-script = ExtResource("2_jh0ie")
+script = ExtResource("2_tefeu")
 
-[node name="Glock" parent="Player/CharacterBody3D/Head/Camera3D/Weapon" unique_id=846804816 instance=ExtResource("3_kvhdw")]
-transform = Transform3D(-0.14695829, 0.026060594, -0.014970407, 0.023279287, 0.14596044, 0.025566012, 0.019009039, 0.022724243, -0.14704517, 0.5558853, -0.69531345, -1.2241364)
+[node name="Glock" parent="Player/CharacterBody3D/Head/Camera3D/Weapon" unique_id=846804816 instance=ExtResource("3_o6xl0")]
+transform = Transform3D(-0.14562981, 0.026060594, -0.02475508, 0.021519238, 0.14596044, 0.027064152, 0.028790487, 0.022724243, -0.14544666, 0.6584222, -0.7427735, -1.036886)
 
 [node name="Muzzle" type="Node3D" parent="Player/CharacterBody3D/Head/Camera3D/Weapon/Glock" unique_id=864333982]
 transform = Transform3D(0.027907949, -0.03453721, 0.0019074865, 0.034539074, 0.027957324, 0.0008665115, -0.0018732287, 0.0009382535, 0.044395037, 0.033294678, 1.1380882, 2.5740051)

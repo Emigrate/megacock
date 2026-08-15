@@ -1,8 +1,8 @@
 extends Node3D
 
 @export var damage := 50.0
-@export var attack_range := 2.5
-@export var attack_cooldown := 0.5
+@export var attack_range := 5
+@export var attack_cooldown := 0.25
 @export var anim_player: AnimationPlayer
 @export var hit_timing := 0.3155
 @export var is_auto := false

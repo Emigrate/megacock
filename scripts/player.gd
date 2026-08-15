@@ -42,7 +42,7 @@ var stand_check := CapsuleShape3D.new()
 var _dash_ready := true
 var _dash_timer := 0.0
 var _fov_shift := 0.0
-var _base_fov := 75.0
+var _base_fov := 90.0   # ← теперь 90
 
 var _hud: CanvasLayer
 var _crosshair_visible := false
@@ -61,14 +61,14 @@ var _current_weapon_is_auto := false
 # --- ПАУЗА ---
 var _pause_layer: CanvasLayer
 var _pause_visible := false
-var _animation_players: Array = []   # все AnimationPlayer в сцене
+var _animation_players: Array = []
+var _fov_slider: HSlider
+var _fov_value_label: Label
 
 
 func _ready() -> void:
-	# --- ВАЖНО: чтобы игрок обрабатывал ввод даже на паузе ---
 	process_mode = PROCESS_MODE_ALWAYS
 
-	# --- КОЛЛИЗИЯ ---
 	var capsule := CapsuleShape3D.new()
 	capsule.radius = 0.5
 	capsule.height = STAND_HEIGHT
@@ -86,13 +86,10 @@ func _ready() -> void:
 	_hud.set_crosshair_visible(false)
 
 	add_to_group("player")
-	_base_fov = camera.fov
+	_base_fov = 90.0
+	camera.fov = _base_fov
 
-	# ============================================
-	#  ЗАГРУЗКА ОРУЖИЯ
-	# ============================================
-
-	# --- 1. ПИСТОЛЕТ ---
+	# --- ЗАГРУЗКА ОРУЖИЯ ---
 	var pistol = $Head/Camera3D/Weapon
 	if pistol == null:
 		print("⚠️ Пистолет не найден в сцене, создаю заглушку.")
@@ -107,7 +104,6 @@ func _ready() -> void:
 		if pistol.get_parent() != camera:
 			camera.add_child(pistol)
 
-	# --- 2. ТОПОР (AXE) ---
 	var axe = null
 	var axe_scene = load("res://scenes/axe.tscn")
 	if axe_scene != null:
@@ -130,7 +126,6 @@ func _ready() -> void:
 		axe.position = Vector3(0.3, -0.15, -0.6)
 		camera.add_child(axe)
 
-	# --- 3. КАЛАШ ---
 	var ak = null
 	var ak_scene = load("res://scenes/ak.tscn")
 	if ak_scene != null:
@@ -153,7 +148,6 @@ func _ready() -> void:
 		if ak.get_parent() != camera:
 			camera.add_child(ak)
 
-	# --- СОБИРАЕМ МАССИВ ---
 	_weapons = [axe, pistol, ak]
 	for w in _weapons:
 		w.visible = false
@@ -164,7 +158,7 @@ func _ready() -> void:
 	# --- ПАУЗА: СОЗДАЁМ UI ---
 	_create_pause_ui()
 
-	# --- СОБИРАЕМ ВСЕ AnimationPlayer в сцене ---
+	# --- СОБИРАЕМ ВСЕ AnimationPlayer ---
 	_collect_animation_players(get_tree().root)
 
 
@@ -199,7 +193,7 @@ func _create_pause_ui() -> void:
 	add_child(_pause_layer)
 	_pause_layer.visible = false
 
-	# Затемнение (клики проходят сквозь)
+	# Затемнение
 	var rect := ColorRect.new()
 	rect.color = Color(0, 0, 0, 0.6)
 	rect.size = get_viewport().get_visible_rect().size
@@ -207,16 +201,50 @@ func _create_pause_ui() -> void:
 	rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_pause_layer.add_child(rect)
 
+	# Контейнер для элементов
+	var container := VBoxContainer.new()
+	container.size = Vector2(300, 200)
+	container.position = (rect.size - container.size) / 2
+	container.add_theme_constant_override("separation", 20)
+	_pause_layer.add_child(container)
+
 	# Кнопка "Продолжить"
 	var btn := Button.new()
 	btn.text = "Продолжить"
 	btn.size = Vector2(200, 60)
-	btn.position = (rect.size - btn.size) / 2
+	btn.custom_minimum_size = Vector2(200, 60)
 	btn.add_theme_font_size_override("font_size", 24)
 	btn.pressed.connect(_unpause)
-	_pause_layer.add_child(btn)
+	container.add_child(btn)
 
-	# При изменении размера окна пересчитываем позицию кнопки
+	# Блок для FOV
+	var fov_box := HBoxContainer.new()
+	fov_box.size = Vector2(200, 40)
+	fov_box.alignment = BoxContainer.ALIGNMENT_CENTER
+	container.add_child(fov_box)
+
+	var fov_label := Label.new()
+	fov_label.text = "FOV:"
+	fov_label.add_theme_font_size_override("font_size", 20)
+	fov_label.size = Vector2(50, 40)
+	fov_box.add_child(fov_label)
+
+	_fov_slider = HSlider.new()
+	_fov_slider.min_value = 85.0      # ← новый минимум
+	_fov_slider.max_value = 100.0     # ← новый максимум
+	_fov_slider.step = 1.0
+	_fov_slider.value = _base_fov
+	_fov_slider.size = Vector2(140, 30)
+	_fov_slider.custom_minimum_size = Vector2(140, 30)
+	_fov_slider.value_changed.connect(_on_fov_changed)
+	fov_box.add_child(_fov_slider)
+
+	_fov_value_label = Label.new()
+	_fov_value_label.text = str(_base_fov)
+	_fov_value_label.add_theme_font_size_override("font_size", 18)
+	_fov_value_label.size = Vector2(40, 40)
+	fov_box.add_child(_fov_value_label)
+
 	get_viewport().size_changed.connect(_resize_pause_ui)
 
 
@@ -226,9 +254,16 @@ func _resize_pause_ui() -> void:
 	var rect: ColorRect = _pause_layer.get_child(0)
 	if rect:
 		rect.size = get_viewport().get_visible_rect().size
-	var btn: Button = _pause_layer.get_child(1) if _pause_layer.get_child_count() > 1 else null
-	if btn:
-		btn.position = (rect.size - btn.size) / 2
+	var container: VBoxContainer = _pause_layer.get_child(1) if _pause_layer.get_child_count() > 1 else null
+	if container:
+		container.position = (rect.size - container.size) / 2
+
+
+func _on_fov_changed(value: float) -> void:
+	camera.fov = value
+	_base_fov = value
+	if _fov_value_label:
+		_fov_value_label.text = str(round(value))
 
 
 func _unpause() -> void:
@@ -242,6 +277,10 @@ func _toggle_pause() -> void:
 	if _pause_visible:
 		Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 		_set_animation_players_process_mode(PROCESS_MODE_DISABLED)
+		if _fov_slider:
+			_fov_slider.value = camera.fov
+			if _fov_value_label:
+				_fov_value_label.text = str(round(camera.fov))
 	else:
 		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 		_set_animation_players_process_mode(PROCESS_MODE_INHERIT)
@@ -391,16 +430,12 @@ func _handle_steps(delta: float, moving: bool) -> void:
 
 
 func _input(event: InputEvent) -> void:
-	# --- Обработка ESC для паузы (всегда работает) ---
 	if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
 		_toggle_pause()
-		return   # не обрабатываем дальше
-
-	# Если пауза активна — игнорируем всё остальное (включая клики мыши)
-	if _pause_visible:
 		return
 
-	# --- Всё, что ниже, выполняется только когда игра НЕ на паузе ---
+	if _pause_visible:
+		return
 
 	if event is InputEventMouseMotion and Input.get_mouse_mode() == Input.MOUSE_MODE_CAPTURED:
 		rotate_y(-event.relative.x * mouse_sensitivity)
