@@ -1,0 +1,438 @@
+extends CharacterBody3D
+
+const HUD_SCRIPT := preload("res://scripts/player/player_hud.gd")
+
+@export var move_speed: float = 23.0
+@export var gravity: float = 65.0
+@export var jump_velocity: float = 20.0
+@export var jump_forward := 6.0
+@export var mouse_sensitivity: float = 0.001
+@export var crouch_speed_multiplier: float = 0.5
+@export var crouch_interp_speed: float = 8.0
+
+@export var dash_speed: float = 70.0
+@export var dash_time: float = 0.15
+@export var dash_cooldown: float = 0.8
+@export var dash_fov: float = -10.0
+
+@export var strafe_follow := 6.0
+@export var air_accel := 45.0
+@export var strafe_side := 0.5
+
+@export var noclip_speed := 35.0
+@export var max_hp := 100
+
+var hp := max_hp
+
+const STAND_HEIGHT: float = 1.8
+const CROUCH_HEIGHT: float = 1.0
+
+@onready var camera: Camera3D = $Head/Camera3D
+@onready var collision: CollisionShape3D = $CollisionShape3D
+
+var pitch: float = 0.0
+var current_height: float = STAND_HEIGHT
+var target_height: float = STAND_HEIGHT
+var is_crouching: bool = false
+
+var bob_time := 0.0
+var bob_amp := 0.08
+var stand_check := CapsuleShape3D.new()
+
+var _dash_ready := true
+var _dash_timer := 0.0
+var _fov_shift := 0.0
+var _base_fov := 75.0
+
+var _hud: CanvasLayer
+var _crosshair_visible := true
+var _noclip := false
+var _invuln_timer := 0.0
+
+var _step_timer := 0.0
+var _step_interval := 0.4
+var _was_in_air := false
+
+# --- ОРУЖИЕ (3 слота) ---
+var _weapons: Array = []
+var _current_weapon_index := 0
+var _current_weapon_is_auto := false
+
+
+func _ready() -> void:
+	# --- КОЛЛИЗИЯ ---
+	var capsule := CapsuleShape3D.new()
+	capsule.radius = 0.5
+	capsule.height = STAND_HEIGHT
+	collision.shape = capsule
+	collision.position.y = STAND_HEIGHT * 0.5
+
+	stand_check.radius = 0.5
+	stand_check.height = STAND_HEIGHT
+
+	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+
+	_hud = HUD_SCRIPT.new()
+	add_child(_hud)
+
+	add_to_group("player")
+	_base_fov = camera.fov
+
+	# ============================================
+	#  ЗАГРУЗКА ОРУЖИЯ (БЕЗ ОШИБОК add_child)
+	# ============================================
+
+	# --- 1. ПИСТОЛЕТ (уже есть в сцене) ---
+	var pistol = $Head/Camera3D/Weapon
+	if pistol == null:
+		print("⚠️ Пистолет не найден в сцене, создаю заглушку.")
+		pistol = _create_pistol_node()
+		camera.add_child(pistol)
+	else:
+		pistol.name = "Pistol"
+		if pistol.get_script() == null:
+			var script = load("res://scripts/weapons/pistol.gd")
+			if script:
+				pistol.set_script(script)
+		# Убеждаемся, что он в камере (если уже есть, не дублируем)
+		if pistol.get_parent() != camera:
+			camera.add_child(pistol)
+
+	# --- 2. ТОПОР (НОЖ) ---
+	var knife = null
+	var knife_scene = load("res://scenes/knife.tscn")
+	if knife_scene != null:
+		knife = knife_scene.instantiate()
+		knife.name = "Knife"
+		if knife.get_script() == null:
+			var script = load("res://scripts/weapons/knife.gd")
+			if script:
+				knife.set_script(script)
+		if knife.get_parent() != camera:
+			camera.add_child(knife)
+		print("✅ Нож загружен из сцены knife.tscn")
+	else:
+		print("⚠️ knife.tscn не найден, создаю заглушку.")
+		knife = Node3D.new()
+		knife.name = "Knife"
+		var script = load("res://scripts/weapons/knife.gd")
+		if script:
+			knife.set_script(script)
+		knife.position = Vector3(0.3, -0.15, -0.6)
+		camera.add_child(knife)
+
+	# --- 3. КАЛАШ ---
+	var ak = null
+	var ak_scene = load("res://scenes/ak.tscn")
+	if ak_scene != null:
+		ak = ak_scene.instantiate()
+		ak.name = "AK47"
+		if ak.get_script() == null:
+			var script = load("res://scripts/weapons/ak.gd")
+			if script:
+				ak.set_script(script)
+		if ak.get_parent() != camera:
+			camera.add_child(ak)
+		print("✅ Калаш загружен из сцены ak.tscn")
+	else:
+		print("⚠️ ak.tscn не найден, создаю дубликат пистолета.")
+		ak = pistol.duplicate()
+		ak.name = "AK47"
+		var script = load("res://scripts/weapons/ak.gd")
+		if script:
+			ak.set_script(script)
+		if ak.get_parent() != camera:
+			camera.add_child(ak)
+
+	# --- СОБИРАЕМ МАССИВ ---
+	_weapons = [knife, pistol, ak]
+	for w in _weapons:
+		w.visible = false
+	_weapons[0].visible = true   # топор по умолчанию
+	_current_weapon_index = 0
+	_current_weapon_is_auto = false
+
+
+func _create_pistol_node() -> Node3D:
+	var pistol = Node3D.new()
+	pistol.name = "Pistol"
+	var script = load("res://scripts/weapons/pistol.gd")
+	if script:
+		pistol.set_script(script)
+	var muzzle = Node3D.new()
+	muzzle.name = "Muzzle"
+	muzzle.position = Vector3(0, 0, -0.5)
+	pistol.add_child(muzzle)
+	return pistol
+
+
+func _process(delta: float) -> void:
+	pass
+
+
+func _physics_process(delta: float) -> void:
+	_invuln_timer -= delta
+
+	var input_dir := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
+
+	if _noclip:
+		var fly_dir := camera.global_transform.basis.z * input_dir.y + camera.global_transform.basis.x * input_dir.x
+		if Input.is_action_pressed("jump"):
+			fly_dir.y += 1.0
+		if Input.is_action_pressed("crouch"):
+			fly_dir.y -= 1.0
+		fly_dir = fly_dir.normalized()
+		velocity = fly_dir * noclip_speed
+		move_and_slide()
+		_was_in_air = false
+		_update_hud()
+		return
+
+	var direction := (transform.basis * Vector3(input_dir.x, 0.0, input_dir.y)).normalized()
+
+	if Input.is_action_pressed("crouch"):
+		if not is_crouching:
+			is_crouching = true
+			target_height = CROUCH_HEIGHT
+	else:
+		if is_crouching and can_stand_up():
+			is_crouching = false
+			target_height = STAND_HEIGHT
+
+	if _dash_timer > 0.0:
+		_dash_timer -= delta
+		var dash_dir := -camera.global_transform.basis.z
+		velocity += dash_dir * dash_speed * delta * 2.0
+		var horiz := Vector2(velocity.x, velocity.z)
+		var max_speed := dash_speed * 1.8
+		if horiz.length() > max_speed:
+			horiz = horiz.normalized() * max_speed
+			velocity.x = horiz.x
+			velocity.z = horiz.y
+	else:
+		if not is_on_floor():
+			velocity.y -= gravity * delta
+
+		if Input.is_action_pressed("jump") and is_on_floor():
+			if is_crouching and can_stand_up():
+				is_crouching = false
+				target_height = STAND_HEIGHT
+			if not is_crouching:
+				velocity.y = jump_velocity
+				var jump_fwd := -camera.global_transform.basis.z
+				jump_fwd.y = 0.0
+				jump_fwd = jump_fwd.normalized()
+				velocity.x += jump_fwd.x * jump_forward
+				velocity.z += jump_fwd.z * jump_forward
+
+		if not is_on_floor():
+			var strafe := Input.get_axis("move_left", "move_right")
+			var view_dir := Vector2(-camera.global_transform.basis.z.x, -camera.global_transform.basis.z.z)
+			var side := Vector2(-view_dir.y, view_dir.x)
+			var horiz := Vector2(velocity.x, velocity.z)
+
+			if strafe != 0.0:
+				var desired := (view_dir + side * strafe * strafe_side).normalized()
+				if horiz.length() > 0.01:
+					var diff := wrapf(desired.angle() - horiz.angle(), -PI, PI)
+					var max_turn := strafe_follow * delta
+					horiz = horiz.rotated(clampf(diff, -max_turn, max_turn))
+				else:
+					horiz = desired * (air_accel * delta)
+				horiz += side * strafe * air_accel * delta
+			else:
+				var base := Vector2(velocity.x, velocity.z)
+				if base.length() > move_speed:
+					var damp := 1.0 - exp(-3.0 * delta)
+					base = base.lerp(base.normalized() * move_speed, damp)
+					horiz = base
+
+			velocity.x = horiz.x
+			velocity.z = horiz.y
+
+		var speed := move_speed
+		if is_crouching:
+			speed *= crouch_speed_multiplier
+		var target_vel := direction * speed
+		var ground_damp := -12.0 if is_on_floor() else -0.001
+		velocity.x = lerpf(velocity.x, target_vel.x, 1.0 - exp(ground_damp * delta))
+		velocity.z = lerpf(velocity.z, target_vel.z, 1.0 - exp(ground_damp * delta))
+
+	current_height = move_toward(current_height, target_height, delta * crouch_interp_speed)
+	collision.shape.height = current_height
+	collision.position.y = current_height * 0.5
+
+	var moving := input_dir.length() > 0.0 and is_on_floor()
+	if moving and _dash_timer <= 0.0:
+		bob_time += delta * 12.0
+		$Head.position.y = current_height * 0.9 + sin(bob_time) * bob_amp
+	else:
+		bob_time = 0.0
+		$Head.position.y = lerpf($Head.position.y, current_height * 0.9, 1.0 - exp(-10.0 * delta))
+
+	_handle_steps(delta, moving)
+
+	# --- БОБ ОРУЖИЯ ---
+	if _weapons.size() > 0:
+		var current_weapon = _weapons[_current_weapon_index]
+		if current_weapon and current_weapon.has_method("set_bob"):
+			current_weapon.set_bob(sin(bob_time) * bob_amp, cos(bob_time) * bob_amp * 0.5, moving)
+
+	var fov_damp := 1.0 - exp(-10.0 * delta)
+	_fov_shift = lerpf(_fov_shift, 0.0, fov_damp)
+	camera.fov = _base_fov + _fov_shift
+
+	# --- ФУЛ-АВТО ДЛЯ КАЛАША ---
+	if _current_weapon_is_auto and Input.is_action_pressed("shoot"):
+		var current_weapon = _weapons[_current_weapon_index]
+		if current_weapon and current_weapon.has_method("try_fire"):
+			current_weapon.try_fire()
+
+	_update_hud()
+	move_and_slide()
+
+	if _was_in_air and is_on_floor():
+		AudioManager.play_land()
+	_was_in_air = not is_on_floor()
+
+
+func _handle_steps(delta: float, moving: bool) -> void:
+	if not moving:
+		_step_timer = 0.0
+		return
+	var horiz := Vector2(velocity.x, velocity.z).length()
+	_step_interval = clampf(0.42 - horiz * 0.008, 0.18, 0.42)
+	_step_timer += delta
+	if _step_timer >= _step_interval:
+		_step_timer = 0.0
+		AudioManager.play_step()
+
+
+func _input(event: InputEvent) -> void:
+	if event is InputEventMouseMotion and Input.get_mouse_mode() == Input.MOUSE_MODE_CAPTURED:
+		rotate_y(-event.relative.x * mouse_sensitivity)
+		pitch = clampf(pitch - event.relative.y * mouse_sensitivity, deg_to_rad(-89.0), deg_to_rad(89.0))
+		camera.rotation.x = pitch
+
+		if _weapons.size() > 0:
+			var current_weapon = _weapons[_current_weapon_index]
+			if current_weapon and current_weapon.has_method("set_yaw_input"):
+				current_weapon.set_yaw_input(event.relative.x)
+
+	if event is InputEventMouseButton and event.pressed:
+		if Input.get_mouse_mode() != Input.MOUSE_MODE_CAPTURED:
+			Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+
+	if event.is_action_pressed("shoot"):
+		var current_weapon = _weapons[_current_weapon_index]
+		if current_weapon and current_weapon.has_method("try_fire"):
+			if not _current_weapon_is_auto:
+				current_weapon.try_fire()
+
+	if event.is_action_pressed("dash"):
+		do_dash()
+
+	if event.is_action_pressed("spawn_enemy"):
+		spawn_enemy_at_crosshair()
+
+	if event is InputEventKey and event.pressed:
+		match event.keycode:
+			KEY_ESCAPE:
+				Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+			KEY_Z:
+				_toggle_noclip()
+			KEY_X:
+				_toggle_crosshair()
+			KEY_1:
+				_switch_weapon(0)   # топор
+			KEY_2:
+				_switch_weapon(1)   # пистолет
+			KEY_3:
+				_switch_weapon(2)   # калаш
+
+
+func _toggle_noclip() -> void:
+	_noclip = not _noclip
+	collision.disabled = _noclip
+	print("🕊️ Noclip: ", "ВКЛ" if _noclip else "ВЫКЛ")
+
+
+func _toggle_crosshair() -> void:
+	_crosshair_visible = not _crosshair_visible
+	_hud.set_crosshair_visible(_crosshair_visible)
+	print("🔫 Прицел: ", "ВКЛ" if _crosshair_visible else "ВЫКЛ")
+
+
+func _switch_weapon(index: int) -> void:
+	if index < 0 or index >= _weapons.size():
+		return
+	if _current_weapon_index == index:
+		return
+	_weapons[_current_weapon_index].visible = false
+	_current_weapon_index = index
+	_weapons[_current_weapon_index].visible = true
+
+	var weapon = _weapons[_current_weapon_index]
+	# Теперь используем свойство is_auto, объявленное в каждом скрипте оружия
+	_current_weapon_is_auto = weapon.is_auto
+
+
+func do_dash() -> void:
+	if not _dash_ready or _dash_timer > 0.0:
+		return
+	_dash_ready = false
+	_dash_timer = dash_time
+	_fov_shift = dash_fov
+
+	if _weapons.size() > 0:
+		var current_weapon = _weapons[_current_weapon_index]
+		if current_weapon and current_weapon.has_method("set_yaw_input"):
+			current_weapon.set_yaw_input(6.0)
+
+	AudioManager.play_dash()
+
+	get_tree().create_timer(dash_cooldown).timeout.connect(func():
+		_dash_ready = true)
+
+
+func can_stand_up() -> bool:
+	var space := get_world_3d().direct_space_state
+	var query := PhysicsShapeQueryParameters3D.new()
+	query.shape = stand_check
+	query.transform = Transform3D(Basis(), Vector3(global_position.x, global_position.y + STAND_HEIGHT * 0.5, global_position.z))
+	query.exclude = [get_rid()]
+	return space.intersect_shape(query, 1).is_empty()
+
+
+func take_damage(amount: float) -> void:
+	if _invuln_timer > 0.0:
+		return
+	hp -= int(amount)
+	_invuln_timer = 1.0
+	print("💔 Игрок получил урон! HP: ", hp)
+	if hp <= 0:
+		hp = max_hp
+		global_position = Vector3(0, 2, 0)
+		velocity = Vector3.ZERO
+		print("💀 Игрок умер, респавн")
+
+
+func spawn_enemy_at_crosshair() -> void:
+	var spawn_pos := camera.global_position - camera.global_transform.basis.z * 5.0
+	spawn_pos.y += 2.0
+	SwarmManager.spawn(spawn_pos)
+
+
+func spawn_enemy_random() -> void:
+	var angle := randf_range(0.0, TAU)
+	var dist := randf_range(5.0, 15.0)
+	var pos := global_position + Vector3(cos(angle) * dist, 2.0, sin(angle) * dist)
+	SwarmManager.spawn(pos)
+
+
+func _update_hud() -> void:
+	var horiz := Vector2(velocity.x, velocity.z).length()
+	var state := "NOCLIP" if _noclip else ("в воздухе" if not is_on_floor() else "на земле")
+	_hud.set_speed("Скорость: %d м/с (%s)" % [horiz, state])
+	_hud.set_hp(hp, max_hp)          # <--- ФИКС 1: передаём HP
+	_hud.set_mob_count(SwarmManager.get_count())

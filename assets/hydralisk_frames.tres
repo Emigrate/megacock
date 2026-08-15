@@ -1,0 +1,27 @@
+[gd_resource type="SpriteFrames" format=3 uid="uid://dl5erqe0mgo3i"]
+
+[ext_resource type="Texture2D" uid="uid://b7jrwviopsnug" path="res://assets/textures/idle_hydra.png" id="1_6m1r0"]
+[ext_resource type="Texture2D" uid="uid://c8aoo5a2y8jra" path="res://assets/textures/run1_hydra.png" id="2_ly44f"]
+[ext_resource type="Texture2D" uid="uid://dyd3bj0efbjy5" path="res://assets/textures/run2_hydra.png" id="3_gjlft"]
+
+[resource]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("1_6m1r0")
+}],
+"loop": 1,
+"name": &"idle",
+"speed": 5.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("2_ly44f")
+}, {
+"duration": 1.0,
+"texture": ExtResource("3_gjlft")
+}],
+"loop": 1,
+"name": &"walk",
+"speed": 3.0
+}]

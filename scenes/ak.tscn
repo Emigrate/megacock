@@ -1,0 +1,17 @@
+[gd_scene format=3 uid="uid://b03o31r1i78fk"]
+
+[ext_resource type="Script" uid="uid://b8htxjhncycta" path="res://scripts/weapons/ak.gd" id="1_g40we"]
+[ext_resource type="PackedScene" uid="uid://bct1v7reoelvy" path="res://assets/models/ak47.glb" id="2_ggo3p"]
+
+[node name="Node3D" type="Node3D" unique_id=1233343647]
+transform = Transform3D(0.3, 0, 0, 0, 0.3, 0, 0, 0, 0.3, 0, 0, 0)
+
+[node name="ak47" type="Node3D" parent="." unique_id=860292177]
+transform = Transform3D(0.9944169, -0.011933376, 0.1048425, 0.018293133, 0.9980358, -0.059910025, -0.103921674, 0.061493434, 0.9926824, 1.0586894, -1.4190471, -1.7905339)
+script = ExtResource("1_g40we")
+
+[node name="ak47" parent="ak47" unique_id=337178950 instance=ExtResource("2_ggo3p")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.15573895, 0, -0.3677596)
+
+[node name="Muzzle" type="Node3D" parent="ak47/ak47" unique_id=789458394]
+transform = Transform3D(0.9944175, 0.0057887444, -0.10536057, -0.004416723, 0.99990267, 0.013250381, 0.10542701, -0.0127109885, 0.9943457, 0.023997582, 0.41736937, -3.020983)
