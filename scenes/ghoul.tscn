@@ -1,0 +1,25 @@
+[gd_scene format=3 uid="uid://7crggkcg8lau"]
+
+[ext_resource type="Script" uid="uid://bqm5lnbhsa8oj" path="res://scripts/ghoul.gd" id="1_jdvld"]
+[ext_resource type="SpriteFrames" uid="uid://dl5erqe0mgo3i" path="res://assets/hydralisk_frames.tres" id="2_v81jn"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_xo13o"]
+size = Vector3(2.4321246, 3.214671, 2.1482186)
+
+[node name="Ghoul" type="Node3D" unique_id=859663965]
+transform = Transform3D(1.315, 0, 0, 0, 1.315, 0, 0, 0, 1.315, 0, 0, 0)
+
+[node name="CharacterBody3D" type="CharacterBody3D" parent="." unique_id=916880933]
+script = ExtResource("1_jdvld")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="CharacterBody3D" unique_id=315323368]
+transform = Transform3D(0.9999999, 0, 0, 0, 0.9999999, 0, 0, 0, 0.9999999, 0.12288354, 0.15019928, -0.08147225)
+shape = SubResource("BoxShape3D_xo13o")
+
+[node name="AnimatedSprite3D" type="AnimatedSprite3D" parent="CharacterBody3D" unique_id=1369016391]
+pixel_size = 0.05
+billboard = 1
+sprite_frames = ExtResource("2_v81jn")
+animation = &"attack"
+frame = 2
+frame_progress = 0.5099757

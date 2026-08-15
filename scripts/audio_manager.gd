@@ -36,6 +36,12 @@ const WRATHDEMON_SPAWN_SOUND := "res://assets/audio/wrathdemon_spawn.ogg"
 const WRATHDEMON_HIT_SOUND := "res://assets/audio/wrathdemon_hit.ogg"
 const WRATHDEMON_DIE_SOUND := "res://assets/audio/wrathdemon_die.ogg"
 
+# --- ЗВУКИ ГУЛЯ ---
+const GHOUL_SPAWN_SOUND := "res://assets/audio/ghoul_spawn.ogg"
+const GHOUL_HIT_SOUND := "res://assets/audio/ghoul_hit.ogg"
+const GHOUL_DEATH_SOUND := "res://assets/audio/ghoul_death.ogg"
+const GHOUL_SWING_SOUND := "res://assets/audio/ghoul_swing.ogg"
+
 # --- РЕГУЛИРОВКА ГРОМКОСТИ (в дБ) ---
 @export var master_volume_db: float = 0.0
 @export var shot_volume_db: float = -15.0
@@ -50,7 +56,13 @@ const WRATHDEMON_DIE_SOUND := "res://assets/audio/wrathdemon_die.ogg"
 # --- ГРОМКОСТЬ ДЕМОНА ---
 @export var wrathdemon_spawn_volume_db: float = -40.0
 @export var wrathdemon_hit_volume_db: float = -10.0
-@export var wrathdemon_die_volume_db: float = -30
+@export var wrathdemon_die_volume_db: float = -30.0
+
+# --- ГРОМКОСТЬ ГУЛЯ ---
+@export var ghoul_spawn_volume_db: float = -20.0
+@export var ghoul_hit_volume_db: float = -20.0
+@export var ghoul_death_volume_db: float = -20.0
+@export var ghoul_swing_volume_db: float = -20.0
 
 
 func _get_camera() -> Camera3D:
@@ -136,3 +148,20 @@ func play_wrathdemon_hit() -> void:
 
 func play_wrathdemon_die() -> void:
 	play_single(WRATHDEMON_DIE_SOUND, wrathdemon_die_volume_db)
+
+
+# --- ЗВУКИ ГУЛЯ ---
+func play_ghoul_spawn() -> void:
+	play_single(GHOUL_SPAWN_SOUND, ghoul_spawn_volume_db)
+
+
+func play_ghoul_hit() -> void:
+	play_single(GHOUL_HIT_SOUND, ghoul_hit_volume_db)
+
+
+func play_ghoul_death() -> void:
+	play_single(GHOUL_DEATH_SOUND, ghoul_death_volume_db)
+
+
+func play_ghoul_swing() -> void:
+	play_single(GHOUL_SWING_SOUND, ghoul_swing_volume_db)

@@ -1,7 +1,7 @@
 extends Node
 
 const MAX_MOBS := 400
-const HYDRA_SCENE := preload("res://scenes/hydra.tscn")
+const HYDRA_SCENE := preload("res://scenes/ghoul.tscn")
 const DEMON_SCENE := preload("res://scenes/wrathdemon.tscn")
 const GROUND_Y := 0.5
 
