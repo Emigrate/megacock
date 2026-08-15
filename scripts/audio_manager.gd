@@ -1,6 +1,5 @@
 extends Node
-## Глобальный менеджер звуков (автолоад "AudioManager").
-## Все звуки спавнятся как дети активной камеры — всегда слышно чётко.
+## Глобальный менеджер звуков (автолоад).
 
 # --- ЗВУКОВЫЕ РЕСУРСЫ ---
 const SHOT_SOUNDS := [
@@ -32,16 +31,26 @@ const HYDRA_DIE_SOUNDS := [
 	"res://assets/audio/hydra_die3.wav",
 ]
 
+# --- ЗВУКИ ДЕМОНА ---
+const WRATHDEMON_SPAWN_SOUND := "res://assets/audio/wrathdemon_spawn.ogg"
+const WRATHDEMON_HIT_SOUND := "res://assets/audio/wrathdemon_hit.ogg"
+const WRATHDEMON_DIE_SOUND := "res://assets/audio/wrathdemon_die.ogg"
+
 # --- РЕГУЛИРОВКА ГРОМКОСТИ (в дБ) ---
 @export var master_volume_db: float = 0.0
 @export var shot_volume_db: float = -15.0
-@export var ak_shot_volume_db: float = 0
+@export var ak_shot_volume_db: float = 0.0
 @export var step_volume_db: float = -25.0
 @export var land_volume_db: float = -25.0
 @export var dash_volume_db: float = -25.0
 @export var axe_swing_volume_db: float = -14.0
 @export var hydra_die_volume_db: float = -20.0
 @export var shotgun_shot_volume_db: float = -13.0
+
+# --- ГРОМКОСТЬ ДЕМОНА ---
+@export var wrathdemon_spawn_volume_db: float = -40.0
+@export var wrathdemon_hit_volume_db: float = -10.0
+@export var wrathdemon_die_volume_db: float = -30
 
 
 func _get_camera() -> Camera3D:
@@ -52,41 +61,33 @@ func _get_camera() -> Camera3D:
 
 
 func play_random(paths: Array, volume_db := -25.0) -> void:
-	"""Проигрывает случайный звук из массива без изменения высоты"""
 	if paths.is_empty():
 		return
-
 	var p := AudioStreamPlayer.new()
-
 	var cam := _get_camera()
 	if cam:
 		cam.add_child(p)
 	else:
 		get_tree().root.add_child(p)
-
 	var idx := randi() % paths.size()
 	p.stream = load(paths[idx]) as AudioStream
-	p.pitch_scale = 1.0   # БЕЗ ПИТЧА
+	p.pitch_scale = 1.0
 	p.volume_db = volume_db + master_volume_db
 	p.finished.connect(p.queue_free)
 	p.play()
 
 
 func play_single(path: String, volume_db := -25.0) -> void:
-	"""Проигрывает один звук без изменения высоты"""
 	if path.is_empty():
 		return
-
 	var p := AudioStreamPlayer.new()
-
 	var cam := _get_camera()
 	if cam:
 		cam.add_child(p)
 	else:
 		get_tree().root.add_child(p)
-
 	p.stream = load(path) as AudioStream
-	p.pitch_scale = 1.0   # БЕЗ ПИТЧА
+	p.pitch_scale = 1.0
 	p.volume_db = volume_db + master_volume_db
 	p.finished.connect(p.queue_free)
 	p.play()
@@ -122,3 +123,16 @@ func play_hydra_die() -> void:
 
 func play_shotgun_shot() -> void:
 	play_single(SHOTGUN_SHOT_SOUND, shotgun_shot_volume_db)
+
+
+# --- ЗВУКИ ДЕМОНА ---
+func play_wrathdemon_spawn() -> void:
+	play_single(WRATHDEMON_SPAWN_SOUND, wrathdemon_spawn_volume_db)
+
+
+func play_wrathdemon_hit() -> void:
+	play_single(WRATHDEMON_HIT_SOUND, wrathdemon_hit_volume_db)
+
+
+func play_wrathdemon_die() -> void:
+	play_single(WRATHDEMON_DIE_SOUND, wrathdemon_die_volume_db)

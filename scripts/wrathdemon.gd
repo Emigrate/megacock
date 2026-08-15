@@ -1,241 +1,140 @@
-extends Node
+extends CharacterBody3D
 
-const MAX_MOBS := 400
-const MOB_SCENE := preload("res://scenes/hydra.tscn")
-const DEMON_SCENE := preload("res://scenes/wrathdemon.tscn")
-const GROUND_Y := 0.5
-
-@export var min_spawn_distance := 30.0
-@export var max_spawn_distance := 100.0
+# --- Основные параметры ---
 @export var speed := 4.0
+@export var hp := 30
+@export var damage := 15.0
+@export var attack_cooldown := 1.0
 
-var _mobs: Array = []
-var _player: Node3D
-var _spawn_accumulator: float = 0.0
-var _spawn_rate: float = 1.0
-var _nav_map: RID = RID()
+# --- ВЫСОТА ПОЛЁТА (если 0 — случайная в диапазоне min/max) ---
+@export var fixed_fly_height := 0.0          # если >0, демон будет летать строго на этой высоте
+@export var fly_height_min := 8.0            # минимальная высота при случайном выборе (метров)
+@export var fly_height_max := 25.0           # максимальная высота при случайном выборе (метров)
+
+var _target: Node3D
+var _alive := true
+var _animated_sprite: AnimatedSprite3D = null
+var _can_attack := true
+var _hit_timer: float = 0.0
+var _is_hit_animating: bool = false
+var _fly_height: float = 0.0
 
 
 func _ready() -> void:
-	_find_player()
-	_find_navigation_map()
-	print("🟢 Автоспавн: 1 моб/сек (гидры + демоны 50/50)")
-	_spawn_accumulator = 1.0
-
-
-func _find_player() -> void:
 	var players = get_tree().get_nodes_in_group("player")
 	if players.size() > 0:
-		_player = players[0] as Node3D
-		print("✅ Игрок найден: ", _player.name)
+		_target = players[0] as Node3D
+
+	for child in get_children():
+		if child is AnimatedSprite3D:
+			_animated_sprite = child
+			break
+
+	if _animated_sprite:
+		_animated_sprite.play("fly")
+
+	# --- ЗАДАЁМ ВЫСОТУ ПОЛЁТА ---
+	if fixed_fly_height > 0:
+		_fly_height = fixed_fly_height
 	else:
-		_player = null
-		print("⚠️ Игрок пока не найден...")
+		_fly_height = randf_range(fly_height_min, fly_height_max)
+
+	# Поднимаем демона на высоту
+	global_position.y = _fly_height
+
+	AudioManager.play_wrathdemon_spawn()
 
 
-func _find_navigation_map() -> void:
-	var root = get_tree().current_scene
-	if root == null:
+func _physics_process(delta: float) -> void:
+	if not _alive or _target == null:
 		return
-	_find_nav_recursive(root)
-	if _nav_map.is_valid():
-		print("✅ Найдена навигационная карта для спавна!")
+
+	# --- ОБРАБОТКА АНИМАЦИИ HIT ---
+	if _is_hit_animating:
+		_hit_timer += delta
+		if _hit_timer >= 0.3:
+			_is_hit_animating = false
+			_hit_timer = 0.0
+			if _animated_sprite and _alive:
+				_animated_sprite.modulate = Color(1, 1, 1, 1)
+				_animated_sprite.play("fly")
+		return
+
+	var dir := (_target.global_position - global_position).normalized()
+	var dist := global_position.distance_to(_target.global_position)
+
+	# --- ДВИЖЕНИЕ К ИГРОКУ (по горизонтали) ---
+	if dist > 2.0:
+		velocity.x = dir.x * speed
+		velocity.z = dir.z * speed
 	else:
-		print("⚠️ Навигационная карта не найдена, спавн будет по высоте игрока.")
+		velocity.x = 0.0
+		velocity.z = 0.0
 
+	# --- ПОДДЕРЖИВАЕМ ВЫСОТУ ПОЛЁТА ---
+	var y_diff = _fly_height - global_position.y
+	velocity.y = clampf(y_diff * 2.0, -speed, speed)
 
-func _find_nav_recursive(node: Node) -> void:
-	if node is NavigationRegion3D:
-		_nav_map = node.get_navigation_map()
-		return
-	for child in node.get_children():
-		_find_nav_recursive(child)
-		if _nav_map.is_valid():
-			return
+	move_and_slide()
 
+	# --- ПОВОРОТ В СТОРОНУ ИГРОКА ---
+	if dist > 0.3:
+		var target_angle := atan2(dir.x, dir.z)
+		rotation.y = lerp_angle(rotation.y, target_angle, 0.1)
 
-func _process(delta: float) -> void:
-	if _player == null:
-		_find_player()
-		return
+	# --- АТАКА (ближний бой) ---
+	if dist < 2.5 and _can_attack:
+		if _target.has_method("take_damage"):
+			_target.take_damage(damage)
+			_can_attack = false
+			get_tree().create_timer(attack_cooldown).timeout.connect(func(): _can_attack = true)
 
-	if _mobs.size() < MAX_MOBS:
-		_spawn_accumulator += delta * _spawn_rate
-		while _spawn_accumulator >= 1.0:
-			_spawn_mob_auto()
-			_spawn_accumulator -= 1.0
-
-
-func _spawn_mob_auto() -> void:
-	if _player == null:
-		return
-
-	var angle: float = randf_range(0.0, TAU)
-	var dist: float = randf_range(min_spawn_distance, max_spawn_distance)
-	var candidate: Vector3 = _player.global_position + Vector3(cos(angle) * dist, 0.0, sin(angle) * dist)
-
-	var spawn_pos: Vector3
-	if _nav_map.is_valid():
-		var nav_pos: Vector3 = NavigationServer3D.map_get_closest_point(_nav_map, candidate)
-		if nav_pos != Vector3.ZERO:
-			spawn_pos = nav_pos
-			spawn_pos.y += GROUND_Y
+	# --- АНИМАЦИИ ---
+	if _animated_sprite and _alive:
+		if dist > 2.0:
+			if _animated_sprite.animation != "fly":
+				_animated_sprite.play("fly")
 		else:
-			spawn_pos = candidate
-			spawn_pos.y = GROUND_Y
-	else:
-		spawn_pos = candidate
-		spawn_pos.y = GROUND_Y
-
-	# --- 50/50 шанс на гидру или демона ---
-	if randf() < 0.5:
-		spawn(spawn_pos)  # гидра (на земле)
-	else:
-		# Демон спавнится в воздухе (рандомная высота 2–5 метров)
-		var demon_pos := spawn_pos
-		demon_pos.y += randf_range(2.0, 5.0)
-		spawn_demon(demon_pos)
+			if _animated_sprite.animation != "attack":
+				_animated_sprite.play("attack")
 
 
-# --- API ---
-
-func add_extra_spawn(amount: float) -> void:
-	_spawn_rate += amount
-	print("🟢 Скорость спавна: ", _spawn_rate, " моб/сек")
-
-
-func spawn(pos: Vector3) -> void:
-	if _mobs.size() >= MAX_MOBS:
+func take_damage(amount: float) -> void:
+	if not _alive:
 		return
-	var mob_root = MOB_SCENE.instantiate()
-	var mob: CharacterBody3D = _find_mob_body(mob_root)
-	if mob == null:
-		print("⚠️ CharacterBody3D не найден в сцене гидры!")
-		return
-	get_tree().current_scene.add_child(mob_root)
-	mob.global_position = pos
-	_mobs.append(mob)
+	hp -= int(amount)
+	AudioManager.play_wrathdemon_hit()
+
+	if _animated_sprite:
+		_animated_sprite.modulate = Color.WHITE
+		_animated_sprite.play("hit")
+		_is_hit_animating = true
+		_hit_timer = 0.0
+
+	if hp <= 0:
+		_alive = false
+		_die()
 
 
-func spawn_demon(pos: Vector3) -> void:
-	if _mobs.size() >= MAX_MOBS:
-		return
-	var demon_root = DEMON_SCENE.instantiate()
-	var demon: CharacterBody3D = _find_mob_body(demon_root)
-	if demon == null:
-		print("⚠️ CharacterBody3D не найден в сцене демона!")
-		return
-	get_tree().current_scene.add_child(demon_root)
-	demon.global_position = pos
-	_mobs.append(demon)
-	print("👹 Демон заспавнен!")
+func _die() -> void:
+	AudioManager.play_wrathdemon_die()
+	set_physics_process(false)
+	collision_layer = 0
+	collision_mask = 0
 
+	if _animated_sprite:
+		_animated_sprite.stop()
+		_animated_sprite.play("death")
 
-func _find_mob_body(node: Node) -> CharacterBody3D:
-	if node is CharacterBody3D:
-		return node
-	for child in node.get_children():
-		var found = _find_mob_body(child)
-		if found:
-			return found
-	return null
+	var tween = create_tween()
+	tween.set_parallel(true)
 
+	if _animated_sprite:
+		var death_frames = _animated_sprite.sprite_frames.get_frame_count("death")
+		var death_duration = death_frames / 10.0
+		tween.tween_property(_animated_sprite, "modulate", Color(1, 1, 1, 0), death_duration)
+		tween.tween_property(self, "scale", Vector3(0.5, 0.5, 0.5), death_duration)
+		tween.tween_property(self, "global_position:y", global_position.y - 1.0, death_duration)
 
-func spawn_random() -> void:
-	if _player == null:
-		return
-	var angle: float = randf_range(0.0, TAU)
-	var dist: float = randf_range(3.0, max_spawn_distance)
-	var pos: Vector3 = _player.global_position + Vector3(cos(angle) * dist, GROUND_Y, sin(angle) * dist)
-	spawn(pos)
-
-
-func get_hit_position(origin: Vector3, dir: Vector3, max_range: float) -> Vector3:
-	var best_dist: float = max_range
-	var best_pos: Vector3 = Vector3.ZERO
-	for mob in _mobs:
-		if not is_instance_valid(mob):
-			continue
-		if mob.has_method("get_alive") and not mob.get_alive():
-			continue
-		var to_mob: Vector3 = mob.global_position - origin
-		var proj: float = to_mob.dot(dir)
-		if proj < 0 or proj > max_range:
-			continue
-		var closest: Vector3 = origin + dir * proj
-		if closest.distance_to(mob.global_position) < 0.6 and proj < best_dist:
-			best_dist = proj
-			best_pos = mob.global_position
-	return best_pos
-
-
-func damage_ray(origin: Vector3, dir: Vector3, max_range: float, damage: int) -> bool:
-	var best_dist: float = max_range
-	var best_mob = null
-	for mob in _mobs:
-		if not is_instance_valid(mob):
-			continue
-		if mob.has_method("get_alive") and not mob.get_alive():
-			continue
-		var to_mob: Vector3 = mob.global_position - origin
-		var proj: float = to_mob.dot(dir)
-		if proj < 0 or proj > max_range:
-			continue
-		var closest: Vector3 = origin + dir * proj
-		if closest.distance_to(mob.global_position) < 0.6 and proj < best_dist:
-			best_dist = proj
-			best_mob = mob
-	if best_mob and best_mob.has_method("take_damage"):
-		best_mob.take_damage(damage)
-		return true
-	return false
-
-
-func aoe_damage(center: Vector3, radius: float, damage: int) -> int:
-	var killed: int = 0
-	for mob in _mobs:
-		if not is_instance_valid(mob):
-			continue
-		if mob.has_method("get_alive") and not mob.get_alive():
-			continue
-		if mob.global_position.distance_to(center) < radius:
-			if mob.has_method("take_damage"):
-				mob.take_damage(damage)
-				killed += 1
-	return killed
-
-
-func get_count() -> int:
-	return _mobs.size()
-
-
-func clear_all() -> void:
-	for mob in _mobs:
-		if is_instance_valid(mob):
-			mob.queue_free()
-	_mobs.clear()
-
-
-func get_all_mob_positions() -> Array[Vector3]:
-	var result: Array[Vector3] = []
-	for mob in _mobs:
-		if is_instance_valid(mob):
-			result.append(mob.global_position)
-	return result
-
-
-func melee_splash(origin: Vector3, attack_range: float, damage: int) -> int:
-	var hit_count := 0
-	for mob in _mobs:
-		if not is_instance_valid(mob):
-			continue
-		if mob.has_method("get_alive") and not mob.get_alive():
-			continue
-		var dist: float = origin.distance_to(mob.global_position)
-		if dist <= attack_range:
-			if mob.has_method("take_damage"):
-				mob.take_damage(damage)
-				hit_count += 1
-	if hit_count > 0:
-		print("💥 Мультиудар! Задето мобов: ", hit_count)
-	return hit_count
+	await tween.finished
+	queue_free()

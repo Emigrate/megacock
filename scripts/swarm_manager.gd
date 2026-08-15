@@ -7,6 +7,8 @@ const GROUND_Y := 0.5
 
 @export var min_spawn_distance := 30.0
 @export var max_spawn_distance := 100.0
+@export var demon_min_height := 8.0    # минимальная высота для демона
+@export var demon_max_height := 25.0   # максимальная высота для демона
 
 var _mobs: Array = []
 var _player: Node3D
@@ -18,35 +20,30 @@ var _spawn_counter: int = 0
 func _ready() -> void:
 	_find_player()
 	_find_navigation_map()
-	
-	# --- ТАЙМЕР НА 0.5 СЕКУНДЫ ---
+
 	_spawn_timer = Timer.new()
 	_spawn_timer.wait_time = 0.5
 	_spawn_timer.one_shot = false
 	_spawn_timer.timeout.connect(_on_spawn_tick)
 	add_child(_spawn_timer)
 	_spawn_timer.start()
-	
-	print("🟢 Спавн работает: гидра каждую секунду, демон каждые 2 секунды")
+
+	print("🟢 Спавн мобов запущен (гидра 1/сек, демон 1/2сек)")
 
 
 func _on_spawn_tick() -> void:
-	# --- ЧИСТИМ МЁРТВЫХ ---
 	_clean_mobs()
-	
 	if _mobs.size() >= MAX_MOBS:
 		return
 	if _player == null:
 		_find_player()
 		return
-	
+
 	_spawn_counter += 1
-	
-	# --- ГИДРА КАЖДЫЙ ТИК (0.5 сек) -> 1 раз в секунду ---
+
 	if _spawn_counter % 2 == 0:
 		_spawn_hydra()
-	
-	# --- ДЕМОН КАЖДЫЙ 4-Й ТИК (0.5 * 4 = 2 сек) ---
+
 	if _spawn_counter % 4 == 0:
 		_spawn_demon()
 
@@ -55,49 +52,47 @@ func _spawn_hydra() -> void:
 	var pos = _get_spawn_position()
 	if pos == Vector3.ZERO:
 		return
-	
+
 	var mob_root = HYDRA_SCENE.instantiate()
 	var mob = _find_mob_body(mob_root)
 	if mob == null:
-		print("❌ Ошибка: у гидры нет CharacterBody3D!")
 		return
 	get_tree().current_scene.add_child(mob_root)
 	mob.global_position = pos
 	_mobs.append(mob)
-	print("🐍 Гидра!")
 
 
 func _spawn_demon() -> void:
 	var pos = _get_spawn_position()
 	if pos == Vector3.ZERO:
 		return
-	
-	pos.y += randf_range(2.0, 5.0)
-	
+
+	# --- СПАВНИМ ДЕМОНА СРАЗУ В НЕБЕ ---
+	var height = randf_range(demon_min_height, demon_max_height)
+	var spawn_pos = Vector3(pos.x, height, pos.z)
+
 	var mob_root = DEMON_SCENE.instantiate()
 	var mob = _find_mob_body(mob_root)
 	if mob == null:
-		print("❌ Ошибка: у демона нет CharacterBody3D!")
 		return
 	get_tree().current_scene.add_child(mob_root)
-	mob.global_position = pos
+	mob.global_position = spawn_pos
 	_mobs.append(mob)
-	print("👹 Демон!")
 
 
 func _get_spawn_position() -> Vector3:
 	if _player == null:
 		return Vector3.ZERO
-	
+
 	var angle: float = randf_range(0.0, TAU)
 	var dist: float = randf_range(min_spawn_distance, max_spawn_distance)
 	var candidate: Vector3 = _player.global_position + Vector3(cos(angle) * dist, 0.0, sin(angle) * dist)
-	
+
 	if _nav_map.is_valid():
 		var nav_pos: Vector3 = NavigationServer3D.map_get_closest_point(_nav_map, candidate)
 		if nav_pos != Vector3.ZERO:
 			return Vector3(nav_pos.x, nav_pos.y + GROUND_Y, nav_pos.z)
-	
+
 	return Vector3(candidate.x, GROUND_Y, candidate.z)
 
 
@@ -144,7 +139,7 @@ func _find_mob_body(node: Node) -> CharacterBody3D:
 	return null
 
 
-# --- API ДЛЯ ОСТАЛЬНОГО КОДА ---
+# --- API ---
 
 func get_count() -> int:
 	_clean_mobs()
@@ -199,6 +194,28 @@ func damage_ray(origin: Vector3, dir: Vector3, max_range: float, damage: int) ->
 	return false
 
 
+func aoe_damage(center: Vector3, radius: float, damage: int) -> int:
+	var killed: int = 0
+	for mob in _mobs:
+		if not is_instance_valid(mob):
+			continue
+		if mob.has_method("get_alive") and not mob.get_alive():
+			continue
+		if mob.global_position.distance_to(center) < radius:
+			if mob.has_method("take_damage"):
+				mob.take_damage(damage)
+				killed += 1
+	return killed
+
+
+func get_all_mob_positions() -> Array[Vector3]:
+	var result: Array[Vector3] = []
+	for mob in _mobs:
+		if is_instance_valid(mob):
+			result.append(mob.global_position)
+	return result
+
+
 func melee_splash(origin: Vector3, attack_range: float, damage: int) -> int:
 	var hit_count := 0
 	for mob in _mobs:
@@ -211,6 +228,4 @@ func melee_splash(origin: Vector3, attack_range: float, damage: int) -> int:
 			if mob.has_method("take_damage"):
 				mob.take_damage(damage)
 				hit_count += 1
-	if hit_count > 0:
-		print("💥 Мультиудар! Задето мобов: ", hit_count)
 	return hit_count
