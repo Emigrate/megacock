@@ -9,11 +9,16 @@ const FLASH_SCRIPT := preload("res://scripts/muzzle_flash.gd")
 @export var recoil_amount := 0.08
 @export var spread_degrees := 1.5
 @export var first_shot_reset_time := 0.15
-
 @export var is_auto := true
 
+# --- НАСТРОЙКИ МАЗЛА (регулируй в инспекторе) ---
+@export var muzzle_offset := Vector3(0.35, -0.35, -4)
+@export var flash_scale := 1.0
+@export var flash_start_size := 0.25
+@export var flash_end_size := 0.03
+@export var flash_tex_size := 14
+
 var can_fire := true
-var _muzzle: Node3D
 var _model: Node3D
 
 var _bob_x := 0.0
@@ -23,29 +28,18 @@ var _yaw_input := 0.0
 var _lean_cur := 0.0
 var _recoil_back := 0.0
 var _recoil_pitch := 0.0
-
 var _time_since_shot := 999.0
 
 
 func _ready() -> void:
 	for child in get_children():
-		if child is Node3D and child != _muzzle:
+		if child is Node3D:
 			_model = child
 			break
-
-	_muzzle = find_muzzle()
-	if _muzzle == null:
-		_muzzle = Node3D.new()
-		_muzzle.name = "Muzzle"
-		_muzzle.position = Vector3(0, 0, -0.8)
-		add_child(_muzzle)
-
-
-func find_muzzle() -> Node3D:
-	for node in find_children("*uzzle*", "", true, false):
-		if node is Node3D:
-			return node
-	return null
+	if _model == null:
+		_model = Node3D.new()
+		_model.name = "AK_Model"
+		add_child(_model)
 
 
 func set_bob(bob_x: float, bob_y: float, moving: bool) -> void:
@@ -85,7 +79,7 @@ func _process(delta: float) -> void:
 
 
 func try_fire() -> bool:
-	if not can_fire or _muzzle == null:
+	if not can_fire:
 		return false
 
 	can_fire = false
@@ -107,21 +101,22 @@ func try_fire() -> bool:
 
 	var to := origin + dir * shoot_range
 
-	var hit_pos: Vector3 = SwarmManager.get_hit_position(origin, dir, shoot_range)
 	var target := to
-	if hit_pos != Vector3.ZERO:
-		target = hit_pos
-		SwarmManager.damage_ray(origin, dir, shoot_range, int(damage))
+	var hit = space.intersect_ray(PhysicsRayQueryParameters3D.create(origin, to))
+	if hit:
+		target = hit.position
+		var c: Object = hit.collider
+		if c != null and c.has_method("take_damage"):
+			c.take_damage(damage)
 	else:
-		var hit := space.intersect_ray(PhysicsRayQueryParameters3D.create(origin, to))
-		if hit:
-			target = hit.position
-			var c: Object = hit.collider
-			if c != null and c.has_method("take_damage"):
-				c.take_damage(damage)
+		var hit_pos: Vector3 = SwarmManager.get_hit_position(origin, dir, shoot_range)
+		if hit_pos != Vector3.ZERO:
+			target = hit_pos
+			SwarmManager.damage_ray(origin, dir, shoot_range, int(damage))
 
-	spawn_flash()
-	spawn_tracer(_muzzle.global_position, target)
+	var muzzle_pos := cam.global_position + cam.global_transform.basis * muzzle_offset
+	spawn_flash(muzzle_pos)
+	spawn_tracer(muzzle_pos, target)
 
 	var player := get_parent().get_parent().get_parent()
 	var speed_factor := 0.0
@@ -138,17 +133,21 @@ func try_fire() -> bool:
 		spread_degrees = 1.5
 
 	AudioManager.play_ak_shot()
-
 	return true
 
 
-func spawn_flash() -> void:
+func spawn_flash(pos: Vector3) -> void:
 	var flash: Node3D = FLASH_SCRIPT.new()
+	flash.tex_size = flash_tex_size
+	flash.start_size = flash_start_size * flash_scale
+	flash.end_size = flash_end_size * flash_scale
+	# --- opacity удалена ---
+
 	var world := get_tree().current_scene
 	if world == null:
 		world = get_parent().get_parent().get_parent()
 	world.add_child(flash)
-	flash.global_position = _muzzle.global_position
+	flash.global_position = pos
 
 
 func spawn_tracer(from: Vector3, to: Vector3) -> void:

@@ -58,8 +58,17 @@ var _weapons: Array = []
 var _current_weapon_index := 0
 var _current_weapon_is_auto := false
 
+# --- ПАУЗА ---
+var _pause_layer: CanvasLayer
+var _pause_visible := false
+var _animation_players: Array = []   # все AnimationPlayer в сцене
+
 
 func _ready() -> void:
+	# --- ВАЖНО: чтобы игрок обрабатывал ввод даже на паузе ---
+	process_mode = PROCESS_MODE_ALWAYS
+
+	# --- КОЛЛИЗИЯ ---
 	var capsule := CapsuleShape3D.new()
 	capsule.radius = 0.5
 	capsule.height = STAND_HEIGHT
@@ -79,7 +88,11 @@ func _ready() -> void:
 	add_to_group("player")
 	_base_fov = camera.fov
 
-	# --- 1. ПИСТОЛЕТ (уже есть в сцене) ---
+	# ============================================
+	#  ЗАГРУЗКА ОРУЖИЯ
+	# ============================================
+
+	# --- 1. ПИСТОЛЕТ ---
 	var pistol = $Head/Camera3D/Weapon
 	if pistol == null:
 		print("⚠️ Пистолет не найден в сцене, создаю заглушку.")
@@ -94,28 +107,28 @@ func _ready() -> void:
 		if pistol.get_parent() != camera:
 			camera.add_child(pistol)
 
-	# --- 2. ТОПОР (НОЖ) ---
-	var knife = null
-	var knife_scene = load("res://scenes/axe.tscn")
-	if knife_scene != null:
-		knife = knife_scene.instantiate()
-		knife.name = "Knife"
-		if knife.get_script() == null:
+	# --- 2. ТОПОР (AXE) ---
+	var axe = null
+	var axe_scene = load("res://scenes/axe.tscn")
+	if axe_scene != null:
+		axe = axe_scene.instantiate()
+		axe.name = "Axe"
+		if axe.get_script() == null:
 			var script = load("res://scripts/axe.gd")
 			if script:
-				knife.set_script(script)
-		if knife.get_parent() != camera:
-			camera.add_child(knife)
-		print("✅ Нож загружен из сцены axe.tscn")
+				axe.set_script(script)
+		if axe.get_parent() != camera:
+			camera.add_child(axe)
+		print("✅ Топор загружен из сцены axe.tscn")
 	else:
-		print("⚠️ knife.tscn не найден, создаю заглушку.")
-		knife = Node3D.new()
-		knife.name = "Knife"
+		print("⚠️ axe.tscn не найден, создаю заглушку.")
+		axe = Node3D.new()
+		axe.name = "Axe"
 		var script = load("res://scripts/axe.gd")
 		if script:
-			knife.set_script(script)
-		knife.position = Vector3(0.3, -0.15, -0.6)
-		camera.add_child(knife)
+			axe.set_script(script)
+		axe.position = Vector3(0.3, -0.15, -0.6)
+		camera.add_child(axe)
 
 	# --- 3. КАЛАШ ---
 	var ak = null
@@ -140,12 +153,19 @@ func _ready() -> void:
 		if ak.get_parent() != camera:
 			camera.add_child(ak)
 
-	_weapons = [knife, pistol, ak]
+	# --- СОБИРАЕМ МАССИВ ---
+	_weapons = [axe, pistol, ak]
 	for w in _weapons:
 		w.visible = false
 	_weapons[0].visible = true
 	_current_weapon_index = 0
 	_current_weapon_is_auto = false
+
+	# --- ПАУЗА: СОЗДАЁМ UI ---
+	_create_pause_ui()
+
+	# --- СОБИРАЕМ ВСЕ AnimationPlayer в сцене ---
+	_collect_animation_players(get_tree().root)
 
 
 func _create_pistol_node() -> Node3D:
@@ -161,11 +181,80 @@ func _create_pistol_node() -> Node3D:
 	return pistol
 
 
+func _collect_animation_players(node: Node) -> void:
+	if node is AnimationPlayer:
+		_animation_players.append(node)
+	for child in node.get_children():
+		_collect_animation_players(child)
+
+
+func _set_animation_players_process_mode(mode: ProcessMode) -> void:
+	for ap in _animation_players:
+		ap.process_mode = mode
+
+
+func _create_pause_ui() -> void:
+	_pause_layer = CanvasLayer.new()
+	_pause_layer.layer = 10
+	add_child(_pause_layer)
+	_pause_layer.visible = false
+
+	# Затемнение (клики проходят сквозь)
+	var rect := ColorRect.new()
+	rect.color = Color(0, 0, 0, 0.6)
+	rect.size = get_viewport().get_visible_rect().size
+	rect.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_pause_layer.add_child(rect)
+
+	# Кнопка "Продолжить"
+	var btn := Button.new()
+	btn.text = "Продолжить"
+	btn.size = Vector2(200, 60)
+	btn.position = (rect.size - btn.size) / 2
+	btn.add_theme_font_size_override("font_size", 24)
+	btn.pressed.connect(_unpause)
+	_pause_layer.add_child(btn)
+
+	# При изменении размера окна пересчитываем позицию кнопки
+	get_viewport().size_changed.connect(_resize_pause_ui)
+
+
+func _resize_pause_ui() -> void:
+	if _pause_layer == null:
+		return
+	var rect: ColorRect = _pause_layer.get_child(0)
+	if rect:
+		rect.size = get_viewport().get_visible_rect().size
+	var btn: Button = _pause_layer.get_child(1) if _pause_layer.get_child_count() > 1 else null
+	if btn:
+		btn.position = (rect.size - btn.size) / 2
+
+
+func _unpause() -> void:
+	_toggle_pause()
+
+
+func _toggle_pause() -> void:
+	_pause_visible = not _pause_visible
+	_pause_layer.visible = _pause_visible
+	get_tree().paused = _pause_visible
+	if _pause_visible:
+		Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+		_set_animation_players_process_mode(PROCESS_MODE_DISABLED)
+	else:
+		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+		_set_animation_players_process_mode(PROCESS_MODE_INHERIT)
+
+
 func _process(_delta: float) -> void:
 	pass
 
 
 func _physics_process(delta: float) -> void:
+	if get_tree().paused:
+		return
+
 	_invuln_timer -= delta
 
 	var input_dir := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
@@ -302,6 +391,17 @@ func _handle_steps(delta: float, moving: bool) -> void:
 
 
 func _input(event: InputEvent) -> void:
+	# --- Обработка ESC для паузы (всегда работает) ---
+	if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
+		_toggle_pause()
+		return   # не обрабатываем дальше
+
+	# Если пауза активна — игнорируем всё остальное (включая клики мыши)
+	if _pause_visible:
+		return
+
+	# --- Всё, что ниже, выполняется только когда игра НЕ на паузе ---
+
 	if event is InputEventMouseMotion and Input.get_mouse_mode() == Input.MOUSE_MODE_CAPTURED:
 		rotate_y(-event.relative.x * mouse_sensitivity)
 		pitch = clampf(pitch - event.relative.y * mouse_sensitivity, deg_to_rad(-89.0), deg_to_rad(89.0))
@@ -330,8 +430,6 @@ func _input(event: InputEvent) -> void:
 
 	if event is InputEventKey and event.pressed:
 		match event.keycode:
-			KEY_ESCAPE:
-				Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 			KEY_Z:
 				_toggle_noclip()
 			KEY_X:
