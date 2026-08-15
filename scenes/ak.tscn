@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://b03o31r1i78fk"]
 
-[ext_resource type="Script" uid="uid://b8htxjhncycta" path="res://scripts/weapons/ak.gd" id="1_g40we"]
+[ext_resource type="Script" uid="uid://b8htxjhncycta" path="res://scripts/ak.gd" id="1_g40we"]
 [ext_resource type="PackedScene" uid="uid://bct1v7reoelvy" path="res://assets/models/ak47.glb" id="2_ggo3p"]
 
 [node name="Node3D" type="Node3D" unique_id=1233343647]

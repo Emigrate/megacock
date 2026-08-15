@@ -63,7 +63,6 @@ func _process(delta: float) -> void:
 		while _spawn_accumulator >= 1.0:
 			_spawn_mob_auto()
 			_spawn_accumulator -= 1.0
-	# УДАЛЕНО ручное движение мобов — они теперь двигаются сами через свои _physics_process
 
 
 func _spawn_mob_auto() -> void:
@@ -129,8 +128,8 @@ func spawn_random() -> void:
 	spawn(pos)
 
 
-func get_hit_position(origin: Vector3, dir: Vector3, range: float) -> Vector3:
-	var best_dist: float = range
+func get_hit_position(origin: Vector3, dir: Vector3, max_range: float) -> Vector3:
+	var best_dist: float = max_range
 	var best_pos: Vector3 = Vector3.ZERO
 	for mob in _mobs:
 		if not is_instance_valid(mob):
@@ -139,7 +138,7 @@ func get_hit_position(origin: Vector3, dir: Vector3, range: float) -> Vector3:
 			continue
 		var to_mob: Vector3 = mob.global_position - origin
 		var proj: float = to_mob.dot(dir)
-		if proj < 0 or proj > range:
+		if proj < 0 or proj > max_range:
 			continue
 		var closest: Vector3 = origin + dir * proj
 		if closest.distance_to(mob.global_position) < 0.6 and proj < best_dist:
@@ -148,8 +147,8 @@ func get_hit_position(origin: Vector3, dir: Vector3, range: float) -> Vector3:
 	return best_pos
 
 
-func damage_ray(origin: Vector3, dir: Vector3, range: float, damage: int) -> bool:
-	var best_dist: float = range
+func damage_ray(origin: Vector3, dir: Vector3, max_range: float, damage: int) -> bool:
+	var best_dist: float = max_range
 	var best_mob = null
 	for mob in _mobs:
 		if not is_instance_valid(mob):
@@ -158,7 +157,7 @@ func damage_ray(origin: Vector3, dir: Vector3, range: float, damage: int) -> boo
 			continue
 		var to_mob: Vector3 = mob.global_position - origin
 		var proj: float = to_mob.dot(dir)
-		if proj < 0 or proj > range:
+		if proj < 0 or proj > max_range:
 			continue
 		var closest: Vector3 = origin + dir * proj
 		if closest.distance_to(mob.global_position) < 0.6 and proj < best_dist:
@@ -205,7 +204,7 @@ func get_all_mob_positions() -> Array[Vector3]:
 	return result
 
 
-func melee_splash(origin: Vector3, range: float, damage: int) -> int:
+func melee_splash(origin: Vector3, attack_range: float, damage: int) -> int:   # <-- параметр переименован
 	var hit_count := 0
 	for mob in _mobs:
 		if not is_instance_valid(mob):
@@ -213,7 +212,7 @@ func melee_splash(origin: Vector3, range: float, damage: int) -> int:
 		if mob.has_method("get_alive") and not mob.get_alive():
 			continue
 		var dist: float = origin.distance_to(mob.global_position)
-		if dist <= range:
+		if dist <= attack_range:   # <-- используем новое имя
 			if mob.has_method("take_damage"):
 				mob.take_damage(damage)
 				hit_count += 1

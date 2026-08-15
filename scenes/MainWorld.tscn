@@ -1,7 +1,7 @@
 [gd_scene format=3 uid="uid://c6xveif43b3gj"]
 
-[ext_resource type="Script" uid="uid://bu4wtu6f5vqeg" path="res://scripts/player/player.gd" id="1_x0tsy"]
-[ext_resource type="Script" uid="uid://bbkbldmvt4g6a" path="res://scripts/weapons/pistol.gd" id="2_jh0ie"]
+[ext_resource type="Script" uid="uid://bu4wtu6f5vqeg" path="res://scripts/player.gd" id="1_x0tsy"]
+[ext_resource type="Script" uid="uid://bbkbldmvt4g6a" path="res://scripts/pistol.gd" id="2_jh0ie"]
 [ext_resource type="PackedScene" uid="uid://c2v21m0ovy3ml" path="res://assets/models/psx_style_handgun.glb" id="3_kvhdw"]
 [ext_resource type="Texture2D" uid="uid://c0walbablexdi" path="res://assets/textures/dirt_2.png" id="4_ngold"]
 [ext_resource type="Texture2D" uid="uid://cx1u4u3j1wvcj" path="res://assets/textures/Stone wall 1.png" id="5_x4wt1"]

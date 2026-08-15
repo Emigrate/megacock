@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://cblul8mrodu7q"]
 
-[ext_resource type="Script" uid="uid://cbjxhg83we4a5" path="res://scripts/weapons/knife.gd" id="1_syuqf"]
+[ext_resource type="Script" uid="uid://cbjxhg83we4a5" path="res://scripts/knife.gd" id="1_syuqf"]
 [ext_resource type="PackedScene" uid="uid://c0v31vd1tsgau" path="res://assets/models/psx_axe.glb" id="3_amocf"]
 
 [sub_resource type="Animation" id="Animation_amocf"]

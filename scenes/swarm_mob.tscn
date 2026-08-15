@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://7crggkcg8lau"]
 
-[ext_resource type="Script" uid="uid://bqm5lnbhsa8oj" path="res://scripts/enemy/enemy.gd" id="1_kb1ma"]
+[ext_resource type="Script" uid="uid://bqm5lnbhsa8oj" path="res://scripts/enemy.gd" id="1_kb1ma"]
 [ext_resource type="SpriteFrames" uid="uid://dl5erqe0mgo3i" path="res://assets/hydralisk_frames.tres" id="2_kb1ma"]
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_xo13o"]

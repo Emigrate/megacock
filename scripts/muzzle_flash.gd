@@ -5,7 +5,7 @@ extends Node3D
 @export var end_size := 0.01
 @export var expand_time := 0.1
 @export var fade_time := 0.02
-@export var light_energy := 2.0  # Увеличил
+@export var light_energy := 2.0
 @export var light_time := 0.02
 @export var particle_count := 15
 @export var particle_speed := 0.5
@@ -19,16 +19,14 @@ func _ready() -> void:
 	var flash_tex := _gen_flash_texture()
 	var particle_tex := _gen_particle_texture()
 
-	# Свет вспышки
 	var light := OmniLight3D.new()
 	light.light_energy = light_energy
-	light.omni_range = 8.0  # Увеличил
+	light.omni_range = 8.0
 	light.light_color = Color(1.0, 0.7, 0.3)
 	add_child(light)
 	get_tree().create_timer(light_time).timeout.connect(func():
 		light.light_energy = 0.0)
 
-	# Центральная вспышка
 	var spr := _make_sprite(flash_tex, start_size)
 	add_child(spr)
 	var tween := create_tween()
@@ -36,7 +34,6 @@ func _ready() -> void:
 	tween.parallel().tween_property(spr, "modulate:a", 0.0, fade_time)
 	tween.tween_callback(queue_free)
 
-	# Разлетающиеся пиксели
 	for i in particle_count:
 		var p := _make_sprite(particle_tex, start_size * randf_range(0.2, 0.45))
 		p.modulate = color_mid if randf() > 0.5 else color_bright
@@ -66,9 +63,9 @@ func _gen_flash_texture() -> ImageTexture:
 	var img := Image.create(s, s, false, Image.FORMAT_RGBA8)
 	img.fill(Color(0, 0, 0, 0))
 
-	var h := s / 2
-	var q := s / 4
-	var t := maxi(s / 8, 1)
+	var h := int(s / 2.0)   # исправлено
+	var q := int(s / 4.0)   # исправлено
+	var t := maxi(int(s / 8.0), 1)  # исправлено
 
 	for x in range(h - t, h + t):
 		for y in range(q, s - q):

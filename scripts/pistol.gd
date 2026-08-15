@@ -1,16 +1,15 @@
 extends Node3D
 
-const TRACER_SCRIPT := preload("res://scripts/weapons/tracer.gd")
-const FLASH_SCRIPT := preload("res://scripts/weapons/muzzle_flash.gd")
+const TRACER_SCRIPT := preload("res://scripts/tracer.gd")
+const FLASH_SCRIPT := preload("res://scripts/muzzle_flash.gd")
 
-@export var damage := 20.0
-@export var fire_rate := 6.0
-@export var range := 120.0
-@export var recoil_amount := 0.08
-@export var spread_degrees := 1.5
-@export var first_shot_reset_time := 0.15
-
-@export var is_auto := true
+@export var damage := 25.0
+@export var fire_rate := 8.0
+@export var shoot_range := 100.0          # было range
+@export var recoil_amount := 0.05
+@export var spread_degrees := 0.8
+@export var first_shot_reset_time := 0.25
+@export var is_auto := false
 
 var can_fire := true
 var _muzzle: Node3D
@@ -28,16 +27,19 @@ var _time_since_shot := 999.0
 
 
 func _ready() -> void:
-	for child in get_children():
-		if child is Node3D and child != _muzzle:
-			_model = child
-			break
+	_model = get_node_or_null("glock17")
+	if _model == null:
+		for child in get_children():
+			if child is Node3D:
+				_model = child
+				break
 
 	_muzzle = find_muzzle()
 	if _muzzle == null:
+		print("⚠️ Muzzle не найден — создаю на (0,0,-0.5)")
 		_muzzle = Node3D.new()
 		_muzzle.name = "Muzzle"
-		_muzzle.position = Vector3(0, 0, -0.8)
+		_muzzle.position = Vector3(0, 0, -0.5)
 		add_child(_muzzle)
 
 
@@ -79,6 +81,7 @@ func _process(delta: float) -> void:
 		_bob_y = lerpf(_bob_y, 0.0, 1.0 - exp(-12.0 * delta))
 
 	_model.position = origin + Vector3(_bob_x * 0.1, _bob_y * 0.06, _recoil_back)
+
 	_lean_cur = lerpf(_lean_cur, clampf(-_yaw_input * 0.15, -0.25, 0.25), 1.0 - exp(-8.0 * delta))
 	_model.rotation = base_rot + Vector3(_recoil_pitch, _lean_cur, _bob_x * 0.05)
 	_yaw_input = 0.0
@@ -105,13 +108,13 @@ func try_fire() -> bool:
 		dir = dir.rotated(cam.global_transform.basis.x, randf_range(-spread, spread))
 	_time_since_shot = 0.0
 
-	var to := origin + dir * range
+	var to := origin + dir * shoot_range   # исправлено
 
-	var hit_pos: Vector3 = SwarmManager.get_hit_position(origin, dir, range)
+	var hit_pos: Vector3 = SwarmManager.get_hit_position(origin, dir, shoot_range)  # исправлено
 	var target := to
 	if hit_pos != Vector3.ZERO:
 		target = hit_pos
-		SwarmManager.damage_ray(origin, dir, range, int(damage))
+		SwarmManager.damage_ray(origin, dir, shoot_range, int(damage))  # исправлено
 	else:
 		var hit := space.intersect_ray(PhysicsRayQueryParameters3D.create(origin, to))
 		if hit:
@@ -128,17 +131,16 @@ func try_fire() -> bool:
 	if player is CharacterBody3D:
 		var horiz := Vector2(player.velocity.x, player.velocity.z)
 		speed_factor = clampf(horiz.length() / 20.0, 0.0, 1.0)
-
-	_recoil_back = recoil_amount * 3.5 * (1.0 + speed_factor * 0.8)
-	_recoil_pitch = recoil_amount * 1.5 * (1.0 + speed_factor * 0.5)
-
+	
+	_recoil_back = recoil_amount * 3.0 * (1.0 + speed_factor * 0.8)
+	_recoil_pitch = recoil_amount * 1.2 * (1.0 + speed_factor * 0.5)
+	
 	if speed_factor > 0.3:
-		spread_degrees = 1.5 + speed_factor * 1.5
+		spread_degrees = 0.8 + speed_factor * 1.2
 	else:
-		spread_degrees = 1.5
+		spread_degrees = 0.8
 
-	AudioManager.play_ak_shot()   # ← свой звук для АК
-
+	AudioManager.play_shot()
 	return true
 
 

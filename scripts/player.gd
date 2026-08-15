@@ -1,6 +1,6 @@
 extends CharacterBody3D
 
-const HUD_SCRIPT := preload("res://scripts/player/player_hud.gd")
+const HUD_SCRIPT := preload("res://scripts/player_hud.gd")
 
 @export var move_speed: float = 23.0
 @export var gravity: float = 65.0
@@ -45,7 +45,7 @@ var _fov_shift := 0.0
 var _base_fov := 75.0
 
 var _hud: CanvasLayer
-var _crosshair_visible := true
+var _crosshair_visible := false
 var _noclip := false
 var _invuln_timer := 0.0
 
@@ -60,7 +60,6 @@ var _current_weapon_is_auto := false
 
 
 func _ready() -> void:
-	# --- КОЛЛИЗИЯ ---
 	var capsule := CapsuleShape3D.new()
 	capsule.radius = 0.5
 	capsule.height = STAND_HEIGHT
@@ -74,13 +73,11 @@ func _ready() -> void:
 
 	_hud = HUD_SCRIPT.new()
 	add_child(_hud)
+	_crosshair_visible = false
+	_hud.set_crosshair_visible(false)
 
 	add_to_group("player")
 	_base_fov = camera.fov
-
-	# ============================================
-	#  ЗАГРУЗКА ОРУЖИЯ (БЕЗ ОШИБОК add_child)
-	# ============================================
 
 	# --- 1. ПИСТОЛЕТ (уже есть в сцене) ---
 	var pistol = $Head/Camera3D/Weapon
@@ -91,10 +88,9 @@ func _ready() -> void:
 	else:
 		pistol.name = "Pistol"
 		if pistol.get_script() == null:
-			var script = load("res://scripts/weapons/pistol.gd")
+			var script = load("res://scripts/pistol.gd")
 			if script:
 				pistol.set_script(script)
-		# Убеждаемся, что он в камере (если уже есть, не дублируем)
 		if pistol.get_parent() != camera:
 			camera.add_child(pistol)
 
@@ -105,7 +101,7 @@ func _ready() -> void:
 		knife = knife_scene.instantiate()
 		knife.name = "Knife"
 		if knife.get_script() == null:
-			var script = load("res://scripts/weapons/knife.gd")
+			var script = load("res://scripts/knife.gd")
 			if script:
 				knife.set_script(script)
 		if knife.get_parent() != camera:
@@ -115,7 +111,7 @@ func _ready() -> void:
 		print("⚠️ knife.tscn не найден, создаю заглушку.")
 		knife = Node3D.new()
 		knife.name = "Knife"
-		var script = load("res://scripts/weapons/knife.gd")
+		var script = load("res://scripts/knife.gd")
 		if script:
 			knife.set_script(script)
 		knife.position = Vector3(0.3, -0.15, -0.6)
@@ -128,7 +124,7 @@ func _ready() -> void:
 		ak = ak_scene.instantiate()
 		ak.name = "AK47"
 		if ak.get_script() == null:
-			var script = load("res://scripts/weapons/ak.gd")
+			var script = load("res://scripts/ak.gd")
 			if script:
 				ak.set_script(script)
 		if ak.get_parent() != camera:
@@ -138,17 +134,16 @@ func _ready() -> void:
 		print("⚠️ ak.tscn не найден, создаю дубликат пистолета.")
 		ak = pistol.duplicate()
 		ak.name = "AK47"
-		var script = load("res://scripts/weapons/ak.gd")
+		var script = load("res://scripts/ak.gd")
 		if script:
 			ak.set_script(script)
 		if ak.get_parent() != camera:
 			camera.add_child(ak)
 
-	# --- СОБИРАЕМ МАССИВ ---
 	_weapons = [knife, pistol, ak]
 	for w in _weapons:
 		w.visible = false
-	_weapons[0].visible = true   # топор по умолчанию
+	_weapons[0].visible = true
 	_current_weapon_index = 0
 	_current_weapon_is_auto = false
 
@@ -156,7 +151,7 @@ func _ready() -> void:
 func _create_pistol_node() -> Node3D:
 	var pistol = Node3D.new()
 	pistol.name = "Pistol"
-	var script = load("res://scripts/weapons/pistol.gd")
+	var script = load("res://scripts/pistol.gd")
 	if script:
 		pistol.set_script(script)
 	var muzzle = Node3D.new()
@@ -166,7 +161,7 @@ func _create_pistol_node() -> Node3D:
 	return pistol
 
 
-func _process(delta: float) -> void:
+func _process(_delta: float) -> void:
 	pass
 
 
@@ -272,7 +267,6 @@ func _physics_process(delta: float) -> void:
 
 	_handle_steps(delta, moving)
 
-	# --- БОБ ОРУЖИЯ ---
 	if _weapons.size() > 0:
 		var current_weapon = _weapons[_current_weapon_index]
 		if current_weapon and current_weapon.has_method("set_bob"):
@@ -282,7 +276,6 @@ func _physics_process(delta: float) -> void:
 	_fov_shift = lerpf(_fov_shift, 0.0, fov_damp)
 	camera.fov = _base_fov + _fov_shift
 
-	# --- ФУЛ-АВТО ДЛЯ КАЛАША ---
 	if _current_weapon_is_auto and Input.is_action_pressed("shoot"):
 		var current_weapon = _weapons[_current_weapon_index]
 		if current_weapon and current_weapon.has_method("try_fire"):
@@ -344,11 +337,11 @@ func _input(event: InputEvent) -> void:
 			KEY_X:
 				_toggle_crosshair()
 			KEY_1:
-				_switch_weapon(0)   # топор
+				_switch_weapon(0)
 			KEY_2:
-				_switch_weapon(1)   # пистолет
+				_switch_weapon(1)
 			KEY_3:
-				_switch_weapon(2)   # калаш
+				_switch_weapon(2)
 
 
 func _toggle_noclip() -> void:
@@ -373,7 +366,6 @@ func _switch_weapon(index: int) -> void:
 	_weapons[_current_weapon_index].visible = true
 
 	var weapon = _weapons[_current_weapon_index]
-	# Теперь используем свойство is_auto, объявленное в каждом скрипте оружия
 	_current_weapon_is_auto = weapon.is_auto
 
 
@@ -434,5 +426,5 @@ func _update_hud() -> void:
 	var horiz := Vector2(velocity.x, velocity.z).length()
 	var state := "NOCLIP" if _noclip else ("в воздухе" if not is_on_floor() else "на земле")
 	_hud.set_speed("Скорость: %d м/с (%s)" % [horiz, state])
-	_hud.set_hp(hp, max_hp)          # <--- ФИКС 1: передаём HP
+	_hud.set_hp(hp, max_hp)
 	_hud.set_mob_count(SwarmManager.get_count())
