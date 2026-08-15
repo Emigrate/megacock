@@ -25,6 +25,13 @@ const STEP_SOUNDS := [
 const DASH_SOUND := "res://assets/audio/dash.wav"
 const AXE_SWING_SOUND := "res://assets/audio/axe_swing1.wav"
 
+# --- НОВЫЙ МАССИВ ДЛЯ СМЕРТИ ГИДРЫ ---
+const HYDRA_DIE_SOUNDS := [
+	"res://assets/audio/hydra_die1.wav",
+	"res://assets/audio/hydra_die2.wav",
+	"res://assets/audio/hydra_die3.wav",
+]
+
 # --- РЕГУЛИРОВКА ГРОМКОСТИ (в дБ) ---
 @export var master_volume_db: float = 0.0
 @export var shot_volume_db: float = -20.0
@@ -33,6 +40,7 @@ const AXE_SWING_SOUND := "res://assets/audio/axe_swing1.wav"
 @export var land_volume_db: float = -25.0
 @export var dash_volume_db: float = -25.0
 @export var axe_swing_volume_db: float = -14.0
+@export var hydra_die_volume_db: float = -20.0
 
 
 func _get_camera() -> Camera3D:
@@ -102,4 +110,8 @@ func play_dash() -> void:
 
 
 func play_axe_swing() -> void:
-	play_single(AXE_SWING_SOUND, axe_swing_volume_db)   # <-- без вариации pitch
+	play_single(AXE_SWING_SOUND, axe_swing_volume_db)
+
+
+func play_hydra_die() -> void:   # старый метод, можно оставить для совместимости
+	play_random(HYDRA_DIE_SOUNDS, hydra_die_volume_db, 0.9, 1.1)

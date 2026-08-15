@@ -42,7 +42,7 @@ script = ExtResource("1_tbgi4")
 shape = SubResource("CapsuleShape3D_fqhjb")
 
 [node name="Head" type="Node3D" parent="Player/CharacterBody3D" unique_id=1786647442]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.7453537, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9933758, 0)
 
 [node name="Camera3D" type="Camera3D" parent="Player/CharacterBody3D/Head" unique_id=1861621140]
 

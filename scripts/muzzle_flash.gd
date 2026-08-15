@@ -1,105 +1,104 @@
 extends Node3D
 
-@export var tex_size := 2
-@export var start_size := 0.10
+@export var frame_count := 1.50
+@export var animation_speed := 2
+@export var start_size := 0.40
 @export var end_size := 0.01
-@export var expand_time := 0.1
-@export var fade_time := 0.02
-@export var light_energy := 2.0
-@export var light_time := 0.02
-@export var particle_count := 15
-@export var particle_speed := 0.5
-@export var particle_lifetime := 0.01
-@export var color_bright := Color(1.0, 0.95, 0.5, 1.0)
-@export var color_mid := Color(1.0, 0.506, 0.102, 0.902)
-@export var color_dark := Color(1.0, 0.3, 0.0, 0.5)
+@export var light_energy := 2.5
+@export var light_time := 0.1
+@export var tex_size := 8               # разрешение текстуры (чем больше, тем детальнее)
+
+# --- НАСТРОЙКИ ЗАТУХАНИЯ ---
+@export var fade_delay := 0.01
+@export var fade_duration := 0.03
+
+var opacity := 1.0
 
 
 func _ready() -> void:
-	var flash_tex := _gen_flash_texture()
-	var particle_tex := _gen_particle_texture()
-
-	# Свет
+	var frames := SpriteFrames.new()
+	frames.add_animation("flash")
+	
+	for i in range(frame_count):
+		var t := float(i) / float(frame_count - 1)
+		var brightness := 1.0 - t * 0.6
+		var color := Color(1.0, 0.9 - t * 0.5, 0.4 - t * 0.3, brightness)
+		var tex := _gen_explosion_cloud(tex_size, color)
+		frames.add_frame("flash", tex)
+	
+	var anim_sprite := AnimatedSprite3D.new()
+	anim_sprite.sprite_frames = frames
+	anim_sprite.animation = "flash"
+	anim_sprite.play()
+	anim_sprite.speed_scale = animation_speed
+	anim_sprite.pixel_size = start_size
+	anim_sprite.modulate = Color(1, 1, 1, opacity)
+	anim_sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	add_child(anim_sprite)
+	
+	var expand_tween := create_tween()
+	expand_tween.tween_property(anim_sprite, "pixel_size", start_size * 2.0, 0.05)
+	expand_tween.tween_property(anim_sprite, "pixel_size", start_size * 1.4, 0.04)
+	
+	var alpha_tween := create_tween()
+	alpha_tween.tween_property(anim_sprite, "modulate:a", 0.0, fade_duration).set_delay(fade_delay)
+	
 	var light := OmniLight3D.new()
 	light.light_energy = light_energy
 	light.omni_range = 8.0
 	light.light_color = Color(1.0, 0.7, 0.3)
 	add_child(light)
-	get_tree().create_timer(light_time).timeout.connect(func():
-		light.light_energy = 0.0)
-
-	# Центральная вспышка
-	var spr := _make_sprite(flash_tex, start_size)
-	add_child(spr)
-
-	var tween := create_tween()
-	tween.tween_property(spr, "pixel_size", end_size, expand_time)
-	tween.parallel().tween_property(spr, "modulate:a", 0.0, fade_time)
-	tween.tween_callback(queue_free)
-
-	# Частицы
-	for i in particle_count:
-		var p := _make_sprite(particle_tex, start_size * randf_range(0.2, 0.45))
-		p.modulate = color_mid if randf() > 0.5 else color_bright
-		add_child(p)
-
-		var dir := Vector3(randf_range(-1.0, 1.0), randf_range(-0.3, 0.8), randf_range(-1.0, 1.0)).normalized()
-		var dist := particle_speed * randf_range(0.4, 1.2)
-		var lifetime := particle_lifetime * randf_range(0.5, 1.2)
-
-		var pt := p.create_tween()
-		pt.tween_property(p, "position", dir * dist, lifetime)
-		pt.parallel().tween_property(p, "modulate:a", 0.0, lifetime)
-		pt.tween_callback(p.queue_free)
+	var light_tween := create_tween()
+	light_tween.tween_property(light, "light_energy", 0.0, light_time)
+	
+	var total_duration := fade_delay + fade_duration + 0.02
+	get_tree().create_timer(total_duration).timeout.connect(queue_free)
 
 
-func _make_sprite(tex: ImageTexture, px_size: float) -> Sprite3D:
-	var s := Sprite3D.new()
-	s.texture = tex
-	s.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
-	s.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	s.pixel_size = px_size
-	return s
-
-
-func _gen_flash_texture() -> ImageTexture:
-	var s := tex_size
-	var img := Image.create(s, s, false, Image.FORMAT_RGBA8)
+func _gen_explosion_cloud(size: int, color: Color) -> ImageTexture:
+	var img := Image.create(size, size, false, Image.FORMAT_RGBA8)
 	img.fill(Color(0, 0, 0, 0))
-
-	var h := int(s / 2.0)
-	var q := int(s / 4.0)
-	var t := maxi(int(s / 8.0), 1)
-
-	for x in range(h - t, h + t):
-		for y in range(q, s - q):
-			img.set_pixel(x, y, color_bright)
-	for y in range(h - t, h + t):
-		for x in range(q, s - q):
-			img.set_pixel(x, y, color_bright)
-	for x in range(h - q, h + q):
-		for y in range(h - q, h + q):
-			if img.get_pixel(x, y).a < 0.5:
-				img.set_pixel(x, y, color_mid)
-
-	img.set_pixel(q, h - 1, color_dark)
-	img.set_pixel(q, h, color_dark)
-	img.set_pixel(s - q - 1, h - 1, color_dark)
-	img.set_pixel(s - q - 1, h, color_dark)
-	if t > 1:
-		img.set_pixel(h - 1, t - 1, color_dark)
-		img.set_pixel(h, t - 1, color_dark)
-		img.set_pixel(h - 1, s - t, color_dark)
-		img.set_pixel(h, s - t, color_dark)
-
-	return ImageTexture.create_from_image(img)
-
-
-func _gen_particle_texture() -> ImageTexture:
-	var img := Image.create(4, 4, false, Image.FORMAT_RGBA8)
-	img.fill(Color(0, 0, 0, 0))
-	img.set_pixel(1, 1, color_bright)
-	img.set_pixel(2, 1, color_bright)
-	img.set_pixel(1, 2, color_bright)
-	img.set_pixel(2, 2, color_mid)
+	
+	var center := Vector2(size/2.0, size/2.0)
+	# Генерируем несколько центров взрыва (от 1 до 3)
+	var centers = []
+	var num_centers = randi() % 3 + 1
+	for n in num_centers:
+		var offset = Vector2(randf_range(-size*0.2, size*0.2), randf_range(-size*0.2, size*0.2))
+		centers.append(center + offset)
+	
+	# Заполняем пиксели случайными точками с падением яркости от центров
+	for x in range(size):
+		for y in range(size):
+			var pos = Vector2(x, y)
+			var max_val = 0.0
+			# Берём максимальную близость к любому центру
+			for c in centers:
+				var dist = pos.distance_to(c)
+				var val = 1.0 - clampf(dist / (size * 0.6), 0.0, 1.0)
+				# Добавляем шум
+				val *= 0.6 + randf() * 0.4
+				if val > max_val:
+					max_val = val
+			# Применяем порог, чтобы было рвано
+			if max_val > 0.15 and randf() < max_val * 0.9:
+				var alpha = max_val * randf_range(0.6, 1.0)
+				# Небольшая вариация цвета (жёлто-оранжево-красный)
+				var col = Color(1.0, 0.7 + randf()*0.3, 0.1 + randf()*0.3, alpha)
+				col = col.lerp(color, 0.5 + randf()*0.5)
+				col.a *= alpha
+				img.set_pixel(x, y, col)
+	
+	# Добавляем яркое ядро (несколько центральных пикселей)
+	for c in centers:
+		for dx in range(-2, 3):
+			for dy in range(-2, 3):
+				var px = int(c.x + dx)
+				var py = int(c.y + dy)
+				if px >= 0 and px < size and py >= 0 and py < size:
+					var dist = Vector2(px, py).distance_to(c)
+					var val = 1.0 - clampf(dist / 3.0, 0.0, 1.0)
+					if val > 0:
+						img.set_pixel(px, py, Color(1.0, 0.9, 0.6, val * 0.8))
+	
 	return ImageTexture.create_from_image(img)

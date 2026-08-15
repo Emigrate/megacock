@@ -76,7 +76,6 @@ func take_damage(amount: float) -> void:
 	hp -= int(amount)
 	print("💥 Моб получил урон! Осталось HP: ", hp)
 	
-	# ⚡ ХИТ-ЭФФЕКТ (ВСПЫШКА + ЧАСТИЦЫ)
 	_play_hit_effect()
 	
 	if hp <= 0:
@@ -85,12 +84,9 @@ func take_damage(amount: float) -> void:
 
 
 func _play_hit_effect() -> void:
-	# 1. ВСПЫШКА (белый цвет, 0.15 сек)
 	if _animated_sprite:
 		_animated_sprite.modulate = Color.WHITE
 		get_tree().create_timer(0.15).timeout.connect(_reset_color)
-	
-	# 2. ПИКСЕЛЬНЫЕ ИСКРЫ (частицы попадания)
 	_spawn_hit_particles()
 
 
@@ -100,7 +96,6 @@ func _reset_color() -> void:
 
 
 func _spawn_hit_particles() -> void:
-	"""Создаёт маленькие искры в точке попадания"""
 	var root := get_tree().current_scene
 	if root == null:
 		root = get_tree().root
@@ -108,7 +103,6 @@ func _spawn_hit_particles() -> void:
 	var tex = _make_pixel_texture()
 	var origin := global_position + Vector3(0, 0.5, 0)
 	
-	# 6 маленьких искр
 	for i in range(6):
 		var spr = Sprite3D.new()
 		spr.texture = tex
@@ -142,6 +136,13 @@ func _spawn_hit_particles() -> void:
 
 
 func _die() -> void:
+	# --- ЗВУК СМЕРТИ ---
+	print("💀 Моб умирает, проигрываем звук...")
+	if AudioManager:
+		AudioManager.play_hydra_die()
+	else:
+		print("⚠️ AudioManager не найден!")
+	
 	set_physics_process(false)
 	collision_layer = 0
 	collision_mask = 0

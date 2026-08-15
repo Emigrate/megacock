@@ -3,7 +3,7 @@ extends Node3D
 const TRACER_SCRIPT := preload("res://scripts/tracer.gd")
 const FLASH_SCRIPT := preload("res://scripts/muzzle_flash.gd")
 
-@export var damage := 20.0
+@export var damage := 30.0
 @export var fire_rate := 8.0
 @export var shoot_range := 120.0
 @export var recoil_amount := 0.08
@@ -11,12 +11,18 @@ const FLASH_SCRIPT := preload("res://scripts/muzzle_flash.gd")
 @export var first_shot_reset_time := 0.15
 @export var is_auto := true
 
-# --- НАСТРОЙКИ МАЗЛА (регулируй в инспекторе) ---
-@export var muzzle_offset := Vector3(0.35, -0.35, -4)
-@export var flash_scale := 1.0
-@export var flash_start_size := 0.25
+# --- НАСТРОЙКИ МАЗЛА ---
+@export var muzzle_offset := Vector3(1, -0.1, -4)
+@export var flash_scale := 1
+@export var flash_start_size := 0.20
 @export var flash_end_size := 0.03
-@export var flash_tex_size := 14
+
+# --- НАСТРОЙКА ТРЕЙСЕРА ---
+@export var tracer_offset := Vector3(1, -0.65, -4)
+
+# --- НАСТРОЙКИ БОБА (регулируй в инспекторе) ---
+@export var bob_position_scale := 0.2          # 1.0 = стандартный боб, 0.5 = в 2 раза меньше
+@export var bob_rotation_scale := 0.15        # вращение от боба
 
 var can_fire := true
 var _model: Node3D
@@ -72,9 +78,15 @@ func _process(delta: float) -> void:
 		_bob_x = lerpf(_bob_x, 0.0, 1.0 - exp(-12.0 * delta))
 		_bob_y = lerpf(_bob_y, 0.0, 1.0 - exp(-12.0 * delta))
 
-	_model.position = origin + Vector3(_bob_x * 0.1, _bob_y * 0.06, _recoil_back)
+	# --- ПРИМЕНЯЕМ МАСШТАБ БОБА ---
+	var bob_offset := Vector3(_bob_x * 0.1 * bob_position_scale,
+							  _bob_y * 0.06 * bob_position_scale,
+							  _recoil_back)
+	_model.position = origin + bob_offset
+
 	_lean_cur = lerpf(_lean_cur, clampf(-_yaw_input * 0.15, -0.25, 0.25), 1.0 - exp(-8.0 * delta))
-	_model.rotation = base_rot + Vector3(_recoil_pitch, _lean_cur, _bob_x * 0.05)
+	var rot_offset := Vector3(_recoil_pitch, _lean_cur, _bob_x * 0.05 * bob_rotation_scale)
+	_model.rotation = base_rot + rot_offset
 	_yaw_input = 0.0
 
 
@@ -116,7 +128,9 @@ func try_fire() -> bool:
 
 	var muzzle_pos := cam.global_position + cam.global_transform.basis * muzzle_offset
 	spawn_flash(muzzle_pos)
-	spawn_tracer(muzzle_pos, target)
+
+	var tracer_pos := cam.global_position + cam.global_transform.basis * tracer_offset
+	spawn_tracer(tracer_pos, target)
 
 	var player := get_parent().get_parent().get_parent()
 	var speed_factor := 0.0
@@ -138,11 +152,8 @@ func try_fire() -> bool:
 
 func spawn_flash(pos: Vector3) -> void:
 	var flash: Node3D = FLASH_SCRIPT.new()
-	flash.tex_size = flash_tex_size
 	flash.start_size = flash_start_size * flash_scale
 	flash.end_size = flash_end_size * flash_scale
-	# --- opacity удалена ---
-
 	var world := get_tree().current_scene
 	if world == null:
 		world = get_parent().get_parent().get_parent()

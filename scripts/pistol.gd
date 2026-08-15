@@ -5,11 +5,17 @@ const FLASH_SCRIPT := preload("res://scripts/muzzle_flash.gd")
 
 @export var damage := 25.0
 @export var fire_rate := 8.0
-@export var shoot_range := 100.0          # было range
+@export var shoot_range := 100.0
 @export var recoil_amount := 0.05
 @export var spread_degrees := 0.8
 @export var first_shot_reset_time := 0.25
 @export var is_auto := false
+
+# --- НАСТРОЙКИ МАЗЛА (регулируй в инспекторе) ---
+@export var muzzle_offset := Vector3(0.33, -0.45, -1.3)   # позиция относительно камеры
+@export var flash_scale := 0.45
+@export var flash_start_size := 0.15
+@export var flash_end_size := 0.02
 
 var can_fire := true
 var _muzzle: Node3D
@@ -108,13 +114,13 @@ func try_fire() -> bool:
 		dir = dir.rotated(cam.global_transform.basis.x, randf_range(-spread, spread))
 	_time_since_shot = 0.0
 
-	var to := origin + dir * shoot_range   # исправлено
+	var to := origin + dir * shoot_range
 
-	var hit_pos: Vector3 = SwarmManager.get_hit_position(origin, dir, shoot_range)  # исправлено
+	var hit_pos: Vector3 = SwarmManager.get_hit_position(origin, dir, shoot_range)
 	var target := to
 	if hit_pos != Vector3.ZERO:
 		target = hit_pos
-		SwarmManager.damage_ray(origin, dir, shoot_range, int(damage))  # исправлено
+		SwarmManager.damage_ray(origin, dir, shoot_range, int(damage))
 	else:
 		var hit := space.intersect_ray(PhysicsRayQueryParameters3D.create(origin, to))
 		if hit:
@@ -123,8 +129,10 @@ func try_fire() -> bool:
 			if c != null and c.has_method("take_damage"):
 				c.take_damage(damage)
 
-	spawn_flash()
-	spawn_tracer(_muzzle.global_position, target)
+	# --- ВЫЧИСЛЯЕМ ПОЗИЦИЮ МАЗЛА ОТ КАМЕРЫ ---
+	var muzzle_pos := cam.global_position + cam.global_transform.basis * muzzle_offset
+	spawn_flash(muzzle_pos)
+	spawn_tracer(muzzle_pos, target)
 
 	var player := get_parent().get_parent().get_parent()
 	var speed_factor := 0.0
@@ -144,13 +152,15 @@ func try_fire() -> bool:
 	return true
 
 
-func spawn_flash() -> void:
+func spawn_flash(pos: Vector3) -> void:
 	var flash: Node3D = FLASH_SCRIPT.new()
+	flash.start_size = flash_start_size * flash_scale
+	flash.end_size = flash_end_size * flash_scale
 	var world := get_tree().current_scene
 	if world == null:
 		world = get_parent().get_parent().get_parent()
 	world.add_child(flash)
-	flash.global_position = _muzzle.global_position
+	flash.global_position = pos
 
 
 func spawn_tracer(from: Vector3, to: Vector3) -> void:
