@@ -1,0 +1,42 @@
+[gd_scene format=3 uid="uid://cqurv8gihbuot"]
+
+[ext_resource type="Script" uid="uid://p6s0smlwlyuo" path="res://scripts/wrathdemon.gd" id="1_8n072"]
+[ext_resource type="Texture2D" uid="uid://cnwp3gt766w75" path="res://assets/textures/wrathdemon_flying1.png" id="2_o3dgn"]
+[ext_resource type="Texture2D" uid="uid://b47fmwvlaipul" path="res://assets/textures/wrathdemon_flying2.png" id="3_qk2fr"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_60rxr"]
+size = Vector3(0.63223267, 0.74053955, 1)
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_lxk3t"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("2_o3dgn")
+}, {
+"duration": 1.0,
+"texture": ExtResource("3_qk2fr")
+}],
+"loop": 1,
+"name": &"fly",
+"speed": 4.0
+}, {
+"frames": [],
+"loop": 1,
+"name": &"new_animation",
+"speed": 5.0
+}]
+
+[node name="WrathDemon" type="Node3D" unique_id=1183294527]
+
+[node name="CharacterBody3D" type="CharacterBody3D" parent="." unique_id=1062303569]
+script = ExtResource("1_8n072")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="CharacterBody3D" unique_id=1275151453]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.0059661865, 0.07070923, 0)
+shape = SubResource("BoxShape3D_60rxr")
+
+[node name="AnimatedSprite3D" type="AnimatedSprite3D" parent="CharacterBody3D" unique_id=899871162]
+billboard = 1
+sprite_frames = SubResource("SpriteFrames_lxk3t")
+animation = &"fly"
+frame_progress = 0.45052832
