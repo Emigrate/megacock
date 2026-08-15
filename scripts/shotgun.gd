@@ -3,33 +3,41 @@ extends Node3D
 const TRACER_SCRIPT := preload("res://scripts/tracer.gd")
 const FLASH_SCRIPT := preload("res://scripts/muzzle_flash.gd")
 
-@export var damage := 30.0
-@export var fire_rate := 8.0
-@export var shoot_range := 120.0
-@export var recoil_amount := 0.08
-@export var spread_degrees := 1.5
-@export var first_shot_reset_time := 0.15
-@export var is_auto := true
+@export var pellet_count := 20
+@export var pellet_damage := 25.0
+@export var fire_rate := 4.0
+@export var shoot_range := 100.0
+@export var spread_degrees := 12.0
+@export var spread_falloff := 1.0
+@export var recoil_amount := 0.3
+@export var first_shot_reset_time := 0.3
+
+# --- ПЕРЕЗАРЯДКА (ПОМПОВОЕ ДЕЙСТВИЕ) ---
+@export var magazine_size := 1
+@export var reload_time := 0.25
 
 # --- НАСТРОЙКИ МАЗЛА ---
-@export var muzzle_offset := Vector3(1, -0.1, -4)
-@export var flash_scale := 1
-@export var flash_start_size := 0.20
+@export var muzzle_offset := Vector3(0.3, -0.30, -6.3)
+@export var flash_scale := 0.6
+@export var flash_start_size := 0.35
 @export var flash_end_size := 0.03
 
 # --- НАСТРОЙКА ТРЕЙСЕРА ---
-@export var tracer_offset := Vector3(1, -0.65, -4)
+@export var tracer_offset := Vector3(0.40, -0.50, -5.7)
 
 # --- НАСТРОЙКИ БОБА ---
-@export var bob_position_scale := 0.2
-@export var bob_rotation_scale := 0.15
+@export var bob_position_scale := 0.6
+@export var bob_rotation_scale := 0.6
 
-# --- ИНТЕНСИВНОСТЬ ОТДАЧИ И FOV-ШЕЙКА (настраивай под АК) ---
-@export var camera_shake_intensity := 0.3
+# --- ИНТЕНСИВНОСТЬ ОТДАЧИ И FOV-ШЕЙКА (настраивай под дробовик) ---
+@export var camera_shake_intensity := 1.5
 
 var can_fire := true
 var _model: Node3D
+var ammo := 6
+var is_reloading := false
 
+# --- ОТДАЧА И БОБ ---
 var _bob_x := 0.0
 var _bob_y := 0.0
 var _bob_moving := false
@@ -47,8 +55,9 @@ func _ready() -> void:
 			break
 	if _model == null:
 		_model = Node3D.new()
-		_model.name = "AK_Model"
+		_model.name = "Shotgun_Model"
 		add_child(_model)
+	ammo = magazine_size
 
 
 func set_bob(bob_x: float, bob_y: float, moving: bool) -> void:
@@ -92,13 +101,29 @@ func _process(delta: float) -> void:
 	_yaw_input = 0.0
 
 
+func _generate_normal_angle(max_angle: float, falloff: float = 1.0) -> float:
+	var r1 = randf_range(-1.0, 1.0)
+	var r2 = randf_range(-1.0, 1.0)
+	var r3 = randf_range(-1.0, 1.0)
+	var normal = (r1 + r2 + r3) / 3.0
+	var sigma = max_angle / 2.0
+	var scale = sigma / 0.577 / falloff
+	return normal * scale
+
+
 func try_fire() -> bool:
-	if not can_fire:
+	if not can_fire or is_reloading or ammo <= 0:
+		if ammo <= 0 and not is_reloading:
+			_reload()
 		return false
 
 	can_fire = false
-	get_tree().create_timer(1.0 / fire_rate).timeout.connect(func():
-		can_fire = true)
+	ammo -= 1
+	if ammo <= 0:
+		_reload()
+
+	var timer = get_tree().create_timer(1.0 / fire_rate)
+	timer.timeout.connect(_on_fire_cooldown)
 
 	var cam := get_parent() as Camera3D
 	var space := cam.get_world_3d().direct_space_state
@@ -106,54 +131,61 @@ func try_fire() -> bool:
 	var origin := cam.global_position
 	var dir := -cam.global_transform.basis.z
 
-	var is_first_shot := _time_since_shot >= first_shot_reset_time
-	if not is_first_shot:
-		var spread := deg_to_rad(spread_degrees)
-		dir = dir.rotated(cam.global_transform.basis.y, randf_range(-spread, spread))
-		dir = dir.rotated(cam.global_transform.basis.x, randf_range(-spread, spread))
-	_time_since_shot = 0.0
+	var spread_rad := deg_to_rad(spread_degrees)
 
-	var to := origin + dir * shoot_range
+	var tracer_start := cam.global_position + cam.global_transform.basis * tracer_offset
 
-	var target := to
-	var hit = space.intersect_ray(PhysicsRayQueryParameters3D.create(origin, to))
-	if hit:
-		target = hit.position
-		var c: Object = hit.collider
-		if c != null and c.has_method("take_damage"):
-			c.take_damage(damage)
-	else:
-		var hit_pos: Vector3 = SwarmManager.get_hit_position(origin, dir, shoot_range)
-		if hit_pos != Vector3.ZERO:
-			target = hit_pos
-			SwarmManager.damage_ray(origin, dir, shoot_range, int(damage))
+	for i in range(pellet_count):
+		var angle_h = _generate_normal_angle(spread_rad, spread_falloff)
+		var angle_v = _generate_normal_angle(spread_rad, spread_falloff)
+
+		var spread_dir := dir
+		spread_dir = spread_dir.rotated(cam.global_transform.basis.y, angle_h)
+		spread_dir = spread_dir.rotated(cam.global_transform.basis.x, angle_v)
+
+		var to := origin + spread_dir * shoot_range
+		var hit = space.intersect_ray(PhysicsRayQueryParameters3D.create(origin, to))
+		if hit:
+			var target: Vector3 = hit.position
+			var c: Object = hit.collider
+			if c != null and c.has_method("take_damage"):
+				c.take_damage(pellet_damage)
+			spawn_tracer(tracer_start, target)
+		else:
+			spawn_tracer(tracer_start, to)
 
 	var muzzle_pos := cam.global_position + cam.global_transform.basis * muzzle_offset
 	spawn_flash(muzzle_pos)
 
-	var tracer_pos := cam.global_position + cam.global_transform.basis * tracer_offset
-	spawn_tracer(tracer_pos, target)
+	_recoil_back = recoil_amount * 4.0
+	_recoil_pitch = recoil_amount * 2.0
 
 	# --- ОТДАЧА И FOV-ШЕЙК ---
 	var player = get_tree().get_first_node_in_group("player")
 	if player and player.has_method("add_camera_shake"):
 		player.add_camera_shake(camera_shake_intensity)
 
-	var speed_factor := 0.0
-	if player is CharacterBody3D:
-		var horiz := Vector2(player.velocity.x, player.velocity.z)
-		speed_factor = clampf(horiz.length() / 20.0, 0.0, 1.0)
-
-	_recoil_back = recoil_amount * 3.5 * (1.0 + speed_factor * 0.8)
-	_recoil_pitch = recoil_amount * 1.5 * (1.0 + speed_factor * 0.5)
-
-	if speed_factor > 0.3:
-		spread_degrees = 1.5 + speed_factor * 1.5
-	else:
-		spread_degrees = 1.5
-
-	AudioManager.play_ak_shot()
+	AudioManager.play_shotgun_shot()
 	return true
+
+
+func _on_fire_cooldown() -> void:
+	can_fire = true
+
+
+func _reload() -> void:
+	if is_reloading or ammo == magazine_size:
+		return
+	is_reloading = true
+	print("🔫 Помповое действие...")
+	var timer = get_tree().create_timer(reload_time)
+	timer.timeout.connect(_on_reload_finished)
+
+
+func _on_reload_finished() -> void:
+	ammo = magazine_size
+	is_reloading = false
+	print("✅ Готов к выстрелу")
 
 
 func spawn_flash(pos: Vector3) -> void:

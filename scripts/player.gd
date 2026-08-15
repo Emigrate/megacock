@@ -27,7 +27,8 @@ var hp := max_hp
 const STAND_HEIGHT: float = 1.8
 const CROUCH_HEIGHT: float = 1.0
 
-@onready var camera: Camera3D = $Head/Camera3D
+@onready var camera: Camera3D = $Head/CameraShake/Camera3D
+@onready var camera_shake: Node3D = $Head/CameraShake
 @onready var collision: CollisionShape3D = $CollisionShape3D
 
 var pitch: float = 0.0
@@ -42,7 +43,7 @@ var stand_check := CapsuleShape3D.new()
 var _dash_ready := true
 var _dash_timer := 0.0
 var _fov_shift := 0.0
-var _base_fov := 90.0   # ← теперь 90
+var _base_fov := 90.0
 
 var _hud: CanvasLayer
 var _crosshair_visible := false
@@ -53,7 +54,7 @@ var _step_timer := 0.0
 var _step_interval := 0.4
 var _was_in_air := false
 
-# --- ОРУЖИЕ (3 слота) ---
+# --- ОРУЖИЕ (4 слота) ---
 var _weapons: Array = []
 var _current_weapon_index := 0
 var _current_weapon_is_auto := false
@@ -64,6 +65,17 @@ var _pause_visible := false
 var _animation_players: Array = []
 var _fov_slider: HSlider
 var _fov_value_label: Label
+
+# --- НАСТРОЙКИ ОТДАЧИ ПО Z (НАЗАД) ---
+@export var recoil_z_multiplier := 3.0
+@export var recoil_z_decay := 6.0
+
+# --- НАСТРОЙКА FOV-ШЕЙКА ---
+@export var fov_shake_multiplier := 1.0
+@export var fov_shake_decay := 15.0
+
+var _recoil_z := 0.0
+var _fov_shake := 0.0
 
 
 func _ready() -> void:
@@ -89,10 +101,10 @@ func _ready() -> void:
 	_base_fov = 90.0
 	camera.fov = _base_fov
 
-	# --- ЗАГРУЗКА ОРУЖИЯ ---
-	var pistol = $Head/Camera3D/Weapon
+	# --- ЗАГРУЗКА ОРУЖИЯ (4 слота) ---
+	var pistol = $Head/CameraShake/Camera3D/Weapon
 	if pistol == null:
-		print("⚠️ Пистолет не найден в сцене, создаю заглушку.")
+		print("⚠️ Пистолет не найден, создаю заглушку.")
 		pistol = _create_pistol_node()
 		camera.add_child(pistol)
 	else:
@@ -115,7 +127,7 @@ func _ready() -> void:
 				axe.set_script(script)
 		if axe.get_parent() != camera:
 			camera.add_child(axe)
-		print("✅ Топор загружен из сцены axe.tscn")
+		print("✅ Топор загружен")
 	else:
 		print("⚠️ axe.tscn не найден, создаю заглушку.")
 		axe = Node3D.new()
@@ -137,7 +149,7 @@ func _ready() -> void:
 				ak.set_script(script)
 		if ak.get_parent() != camera:
 			camera.add_child(ak)
-		print("✅ Калаш загружен из сцены ak.tscn")
+		print("✅ Калаш загружен")
 	else:
 		print("⚠️ ak.tscn не найден, создаю дубликат пистолета.")
 		ak = pistol.duplicate()
@@ -148,17 +160,36 @@ func _ready() -> void:
 		if ak.get_parent() != camera:
 			camera.add_child(ak)
 
-	_weapons = [axe, pistol, ak]
+	var shotgun = null
+	var shotgun_scene = load("res://scenes/shotgun.tscn")
+	if shotgun_scene != null:
+		shotgun = shotgun_scene.instantiate()
+		shotgun.name = "Shotgun"
+		if shotgun.get_script() == null:
+			var script = load("res://scripts/shotgun.gd")
+			if script:
+				shotgun.set_script(script)
+		if shotgun.get_parent() != camera:
+			camera.add_child(shotgun)
+		print("✅ Дробовик загружен")
+	else:
+		print("⚠️ shotgun.tscn не найден, создаю заглушку.")
+		shotgun = Node3D.new()
+		shotgun.name = "Shotgun"
+		var script = load("res://scripts/shotgun.gd")
+		if script:
+			shotgun.set_script(script)
+		shotgun.position = Vector3(0.5, -0.2, -0.8)
+		camera.add_child(shotgun)
+
+	_weapons = [axe, pistol, ak, shotgun]
 	for w in _weapons:
 		w.visible = false
 	_weapons[0].visible = true
 	_current_weapon_index = 0
 	_current_weapon_is_auto = false
 
-	# --- ПАУЗА: СОЗДАЁМ UI ---
 	_create_pause_ui()
-
-	# --- СОБИРАЕМ ВСЕ AnimationPlayer ---
 	_collect_animation_players(get_tree().root)
 
 
@@ -193,7 +224,6 @@ func _create_pause_ui() -> void:
 	add_child(_pause_layer)
 	_pause_layer.visible = false
 
-	# Затемнение
 	var rect := ColorRect.new()
 	rect.color = Color(0, 0, 0, 0.6)
 	rect.size = get_viewport().get_visible_rect().size
@@ -201,14 +231,12 @@ func _create_pause_ui() -> void:
 	rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_pause_layer.add_child(rect)
 
-	# Контейнер для элементов
 	var container := VBoxContainer.new()
 	container.size = Vector2(300, 200)
 	container.position = (rect.size - container.size) / 2
 	container.add_theme_constant_override("separation", 20)
 	_pause_layer.add_child(container)
 
-	# Кнопка "Продолжить"
 	var btn := Button.new()
 	btn.text = "Продолжить"
 	btn.size = Vector2(200, 60)
@@ -217,7 +245,6 @@ func _create_pause_ui() -> void:
 	btn.pressed.connect(_unpause)
 	container.add_child(btn)
 
-	# Блок для FOV
 	var fov_box := HBoxContainer.new()
 	fov_box.size = Vector2(200, 40)
 	fov_box.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -230,8 +257,8 @@ func _create_pause_ui() -> void:
 	fov_box.add_child(fov_label)
 
 	_fov_slider = HSlider.new()
-	_fov_slider.min_value = 85.0      # ← новый минимум
-	_fov_slider.max_value = 100.0     # ← новый максимум
+	_fov_slider.min_value = 85.0
+	_fov_slider.max_value = 100.0
 	_fov_slider.step = 1.0
 	_fov_slider.value = _base_fov
 	_fov_slider.size = Vector2(140, 30)
@@ -286,8 +313,37 @@ func _toggle_pause() -> void:
 		_set_animation_players_process_mode(PROCESS_MODE_INHERIT)
 
 
-func _process(_delta: float) -> void:
-	pass
+func _process(delta: float) -> void:
+	# --- ОТДАЧА ПО Z (КАМЕРА НАЗАД) ---
+	var shake_pos := Vector3.ZERO
+	if abs(_recoil_z) > 0.001:
+		shake_pos.z -= _recoil_z
+		_recoil_z *= exp(-recoil_z_decay * delta)
+	else:
+		_recoil_z = 0.0
+
+	# --- FOV-ШЕЙК ---
+	if abs(_fov_shake) > 0.001:
+		_fov_shake *= exp(-fov_shake_decay * delta)
+	else:
+		_fov_shake = 0.0
+
+	if camera_shake:
+		camera_shake.position = shake_pos
+		camera_shake.rotation = Vector3.ZERO  # ротейшн отключён полностью
+	else:
+		print("⚠️ camera_shake узел не найден!")
+
+	# Если всё затухло — обнуляем
+	if abs(_recoil_z) <= 0.001 and abs(_fov_shake) <= 0.001:
+		camera_shake.position = Vector3.ZERO
+
+
+func add_camera_shake(intensity: float) -> void:
+	# Отдача по Z
+	_recoil_z = max(_recoil_z, intensity * recoil_z_multiplier)
+	# FOV-шейк
+	_fov_shake = max(_fov_shake, intensity * fov_shake_multiplier)
 
 
 func _physics_process(delta: float) -> void:
@@ -400,9 +456,10 @@ func _physics_process(delta: float) -> void:
 		if current_weapon and current_weapon.has_method("set_bob"):
 			current_weapon.set_bob(sin(bob_time) * bob_amp, cos(bob_time) * bob_amp * 0.5, moving)
 
+	# --- FOV: базовый + даш + FOV-шейк ---
 	var fov_damp := 1.0 - exp(-10.0 * delta)
 	_fov_shift = lerpf(_fov_shift, 0.0, fov_damp)
-	camera.fov = _base_fov + _fov_shift
+	camera.fov = _base_fov + _fov_shift + _fov_shake
 
 	if _current_weapon_is_auto and Input.is_action_pressed("shoot"):
 		var current_weapon = _weapons[_current_weapon_index]
@@ -475,6 +532,11 @@ func _input(event: InputEvent) -> void:
 				_switch_weapon(1)
 			KEY_3:
 				_switch_weapon(2)
+			KEY_4:
+				_switch_weapon(3)
+			KEY_R:
+				print("🔴 Тестовый шейк по R!")
+				add_camera_shake(2.0)
 
 
 func _toggle_noclip() -> void:
@@ -499,7 +561,7 @@ func _switch_weapon(index: int) -> void:
 	_weapons[_current_weapon_index].visible = true
 
 	var weapon = _weapons[_current_weapon_index]
-	_current_weapon_is_auto = weapon.is_auto
+	_current_weapon_is_auto = weapon.is_auto if "is_auto" in weapon else false
 
 
 func do_dash() -> void:

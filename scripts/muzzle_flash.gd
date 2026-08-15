@@ -1,6 +1,6 @@
 extends Node3D
 
-@export var frame_count := 1.50
+@export var frame_count := 2
 @export var animation_speed := 2
 @export var start_size := 0.40
 @export var end_size := 0.01

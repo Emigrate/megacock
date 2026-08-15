@@ -11,11 +11,17 @@ const FLASH_SCRIPT := preload("res://scripts/muzzle_flash.gd")
 @export var first_shot_reset_time := 0.25
 @export var is_auto := false
 
-# --- НАСТРОЙКИ МАЗЛА (регулируй в инспекторе) ---
-@export var muzzle_offset := Vector3(0.33, -0.45, -1.3)   # позиция относительно камеры
+# --- НАСТРОЙКИ МАЗЛА ---
+@export var muzzle_offset := Vector3(0.40, -0.55, -2.3)
 @export var flash_scale := 0.45
 @export var flash_start_size := 0.15
 @export var flash_end_size := 0.02
+
+# --- НАСТРОЙКА ТРЕЙСЕРА ---
+@export var tracer_offset := Vector3(0.40, -0.55, -2.3)
+
+# --- ИНТЕНСИВНОСТЬ ОТДАЧИ И FOV-ШЕЙКА (настраивай под пистолет) ---
+@export var camera_shake_intensity := 0.1
 
 var can_fire := true
 var _muzzle: Node3D
@@ -28,7 +34,6 @@ var _yaw_input := 0.0
 var _lean_cur := 0.0
 var _recoil_back := 0.0
 var _recoil_pitch := 0.0
-
 var _time_since_shot := 999.0
 
 
@@ -129,20 +134,25 @@ func try_fire() -> bool:
 			if c != null and c.has_method("take_damage"):
 				c.take_damage(damage)
 
-	# --- ВЫЧИСЛЯЕМ ПОЗИЦИЮ МАЗЛА ОТ КАМЕРЫ ---
 	var muzzle_pos := cam.global_position + cam.global_transform.basis * muzzle_offset
 	spawn_flash(muzzle_pos)
-	spawn_tracer(muzzle_pos, target)
 
-	var player := get_parent().get_parent().get_parent()
+	var tracer_pos := cam.global_position + cam.global_transform.basis * tracer_offset
+	spawn_tracer(tracer_pos, target)
+
+	# --- ОТДАЧА И FOV-ШЕЙК ---
+	var player = get_tree().get_first_node_in_group("player")
+	if player and player.has_method("add_camera_shake"):
+		player.add_camera_shake(camera_shake_intensity)
+
 	var speed_factor := 0.0
 	if player is CharacterBody3D:
 		var horiz := Vector2(player.velocity.x, player.velocity.z)
 		speed_factor = clampf(horiz.length() / 20.0, 0.0, 1.0)
-	
+
 	_recoil_back = recoil_amount * 3.0 * (1.0 + speed_factor * 0.8)
 	_recoil_pitch = recoil_amount * 1.2 * (1.0 + speed_factor * 0.5)
-	
+
 	if speed_factor > 0.3:
 		spread_degrees = 0.8 + speed_factor * 1.2
 	else:

@@ -24,8 +24,13 @@ uv1_scale = Vector3(0.265, 0.265, 0.265)
 uv1_triplanar = true
 uv1_triplanar_sharpness = 1.0352668
 
+[sub_resource type="Sky" id="Sky_tbgi4"]
+
 [sub_resource type="Environment" id="Environment_fqhjb"]
+background_mode = 1
+background_color = Color(0.31879646, 0.3014029, 0.490274, 1)
 background_energy_multiplier = 1.77
+sky = SubResource("Sky_tbgi4")
 
 [node name="MainWorld" type="Node3D" unique_id=193080292]
 
@@ -44,17 +49,16 @@ shape = SubResource("CapsuleShape3D_fqhjb")
 [node name="Head" type="Node3D" parent="Player/CharacterBody3D" unique_id=1786647442]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9933758, 0)
 
-[node name="Camera3D" type="Camera3D" parent="Player/CharacterBody3D/Head" unique_id=1861621140]
+[node name="CameraShake" type="Node3D" parent="Player/CharacterBody3D/Head" unique_id=1510132253]
 
-[node name="Weapon" type="Node3D" parent="Player/CharacterBody3D/Head/Camera3D" unique_id=1263216608]
+[node name="Camera3D" type="Camera3D" parent="Player/CharacterBody3D/Head/CameraShake" unique_id=1861621140]
+
+[node name="Weapon" type="Node3D" parent="Player/CharacterBody3D/Head/CameraShake/Camera3D" unique_id=1263216608]
 transform = Transform3D(0.9968784, -0.07895224, 0, 0.07895224, 0.9968784, 0, 0, 0, 1, -0.35411918, 0, -2.3283064e-10)
 script = ExtResource("2_tefeu")
 
-[node name="Glock" parent="Player/CharacterBody3D/Head/Camera3D/Weapon" unique_id=846804816 instance=ExtResource("3_o6xl0")]
+[node name="Glock" parent="Player/CharacterBody3D/Head/CameraShake/Camera3D/Weapon" unique_id=846804816 instance=ExtResource("3_o6xl0")]
 transform = Transform3D(-0.14562981, 0.026060594, -0.02475508, 0.021519238, 0.14596044, 0.027064152, 0.028790487, 0.022724243, -0.14544666, 0.6584222, -0.7427735, -1.036886)
-
-[node name="Muzzle" type="Node3D" parent="Player/CharacterBody3D/Head/Camera3D/Weapon/Glock" unique_id=864333982]
-transform = Transform3D(0.027907949, -0.03453721, 0.0019074865, 0.034539074, 0.027957324, 0.0008665115, -0.0018732287, 0.0009382535, 0.044395037, 0.033294678, 1.1380882, 2.5740051)
 
 [node name="Level 1 (testing room)" type="Node3D" parent="." unique_id=1188813414]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4.12253, 0)

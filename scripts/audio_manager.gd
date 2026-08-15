@@ -24,8 +24,8 @@ const STEP_SOUNDS := [
 
 const DASH_SOUND := "res://assets/audio/dash.wav"
 const AXE_SWING_SOUND := "res://assets/audio/axe_swing1.wav"
+const SHOTGUN_SHOT_SOUND := "res://assets/audio/shotgun_shot1.wav"
 
-# --- НОВЫЙ МАССИВ ДЛЯ СМЕРТИ ГИДРЫ ---
 const HYDRA_DIE_SOUNDS := [
 	"res://assets/audio/hydra_die1.wav",
 	"res://assets/audio/hydra_die2.wav",
@@ -34,13 +34,14 @@ const HYDRA_DIE_SOUNDS := [
 
 # --- РЕГУЛИРОВКА ГРОМКОСТИ (в дБ) ---
 @export var master_volume_db: float = 0.0
-@export var shot_volume_db: float = -20.0
-@export var ak_shot_volume_db: float = -13.0
+@export var shot_volume_db: float = -15.0
+@export var ak_shot_volume_db: float = 0
 @export var step_volume_db: float = -25.0
 @export var land_volume_db: float = -25.0
 @export var dash_volume_db: float = -25.0
 @export var axe_swing_volume_db: float = -14.0
 @export var hydra_die_volume_db: float = -20.0
+@export var shotgun_shot_volume_db: float = -13.0
 
 
 func _get_camera() -> Camera3D:
@@ -50,7 +51,8 @@ func _get_camera() -> Camera3D:
 	return null
 
 
-func play_random(paths: Array, volume_db := -25.0, pitch_min := 0.9, pitch_max := 1.1) -> void:
+func play_random(paths: Array, volume_db := -25.0) -> void:
+	"""Проигрывает случайный звук из массива без изменения высоты"""
 	if paths.is_empty():
 		return
 
@@ -64,13 +66,14 @@ func play_random(paths: Array, volume_db := -25.0, pitch_min := 0.9, pitch_max :
 
 	var idx := randi() % paths.size()
 	p.stream = load(paths[idx]) as AudioStream
-	p.pitch_scale = randf_range(pitch_min, pitch_max)
+	p.pitch_scale = 1.0   # БЕЗ ПИТЧА
 	p.volume_db = volume_db + master_volume_db
 	p.finished.connect(p.queue_free)
 	p.play()
 
 
-func play_single(path: String, volume_db := -25.0, pitch_min := 1.0, pitch_max := 1.0) -> void:
+func play_single(path: String, volume_db := -25.0) -> void:
+	"""Проигрывает один звук без изменения высоты"""
 	if path.is_empty():
 		return
 
@@ -83,35 +86,39 @@ func play_single(path: String, volume_db := -25.0, pitch_min := 1.0, pitch_max :
 		get_tree().root.add_child(p)
 
 	p.stream = load(path) as AudioStream
-	p.pitch_scale = randf_range(pitch_min, pitch_max)
+	p.pitch_scale = 1.0   # БЕЗ ПИТЧА
 	p.volume_db = volume_db + master_volume_db
 	p.finished.connect(p.queue_free)
 	p.play()
 
 
 func play_step() -> void:
-	play_random(STEP_SOUNDS, step_volume_db, 0.9, 1.1)
+	play_random(STEP_SOUNDS, step_volume_db)
 
 
 func play_land() -> void:
-	play_random(STEP_SOUNDS, land_volume_db, 0.9, 1.0)
+	play_random(STEP_SOUNDS, land_volume_db)
 
 
 func play_shot() -> void:
-	play_random(SHOT_SOUNDS, shot_volume_db, 0.95, 1.05)
+	play_random(SHOT_SOUNDS, shot_volume_db)
 
 
 func play_ak_shot() -> void:
-	play_random(AK_SHOT_SOUNDS, ak_shot_volume_db, 0.95, 1.05)
+	play_random(AK_SHOT_SOUNDS, ak_shot_volume_db)
 
 
 func play_dash() -> void:
-	play_single(DASH_SOUND, dash_volume_db, 0.95, 1.05)
+	play_single(DASH_SOUND, dash_volume_db)
 
 
 func play_axe_swing() -> void:
 	play_single(AXE_SWING_SOUND, axe_swing_volume_db)
 
 
-func play_hydra_die() -> void:   # старый метод, можно оставить для совместимости
-	play_random(HYDRA_DIE_SOUNDS, hydra_die_volume_db, 0.9, 1.1)
+func play_hydra_die() -> void:
+	play_random(HYDRA_DIE_SOUNDS, hydra_die_volume_db)
+
+
+func play_shotgun_shot() -> void:
+	play_single(SHOTGUN_SHOT_SOUND, shotgun_shot_volume_db)
