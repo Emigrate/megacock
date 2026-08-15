@@ -11,7 +11,7 @@ const SHOT_SOUNDS := [
 
 const AK_SHOT_SOUNDS := [
 	"res://assets/audio/ak-47_shot1.wav",
-	"res://assets/audio/ak-47_shot2.wav",   # если есть — добавь
+	"res://assets/audio/ak-47_shot2.wav",
 	"res://assets/audio/ak-47_shot3.wav",
 ]
 
@@ -23,15 +23,16 @@ const STEP_SOUNDS := [
 ]
 
 const DASH_SOUND := "res://assets/audio/dash.wav"
+const AXE_SWING_SOUND := "res://assets/audio/axe_swing1.wav"
 
 # --- РЕГУЛИРОВКА ГРОМКОСТИ (в дБ) ---
-@export var master_volume_db: float = 0.0       # общий множитель
-
-@export var shot_volume_db: float = -25.0       # выстрелы глока
-@export var ak_shot_volume_db: float = -13.0    # выстрелы АК
-@export var step_volume_db: float = -20.0       # шаги
-@export var land_volume_db: float = -25.0       # приземление
-@export var dash_volume_db: float = -25.0       # рывок
+@export var master_volume_db: float = 0.0
+@export var shot_volume_db: float = -20.0
+@export var ak_shot_volume_db: float = -13.0
+@export var step_volume_db: float = -25.0
+@export var land_volume_db: float = -25.0
+@export var dash_volume_db: float = -25.0
+@export var axe_swing_volume_db: float = -14.0
 
 
 func _get_camera() -> Camera3D:
@@ -56,7 +57,7 @@ func play_random(paths: Array, volume_db := -25.0, pitch_min := 0.9, pitch_max :
 	var idx := randi() % paths.size()
 	p.stream = load(paths[idx]) as AudioStream
 	p.pitch_scale = randf_range(pitch_min, pitch_max)
-	p.volume_db = volume_db + master_volume_db   # добавляем мастер
+	p.volume_db = volume_db + master_volume_db
 	p.finished.connect(p.queue_free)
 	p.play()
 
@@ -80,8 +81,6 @@ func play_single(path: String, volume_db := -25.0, pitch_min := 1.0, pitch_max :
 	p.play()
 
 
-# --- УДОБНЫЕ ВЫЗОВЫ С СОБСТВЕННЫМИ ГРОМКОСТЯМИ ---
-
 func play_step() -> void:
 	play_random(STEP_SOUNDS, step_volume_db, 0.9, 1.1)
 
@@ -100,3 +99,7 @@ func play_ak_shot() -> void:
 
 func play_dash() -> void:
 	play_single(DASH_SOUND, dash_volume_db, 0.95, 1.05)
+
+
+func play_axe_swing() -> void:
+	play_single(AXE_SWING_SOUND, axe_swing_volume_db)   # <-- без вариации pitch

@@ -96,22 +96,22 @@ func _ready() -> void:
 
 	# --- 2. ТОПОР (НОЖ) ---
 	var knife = null
-	var knife_scene = load("res://scenes/knife.tscn")
+	var knife_scene = load("res://scenes/axe.tscn")
 	if knife_scene != null:
 		knife = knife_scene.instantiate()
 		knife.name = "Knife"
 		if knife.get_script() == null:
-			var script = load("res://scripts/knife.gd")
+			var script = load("res://scripts/axe.gd")
 			if script:
 				knife.set_script(script)
 		if knife.get_parent() != camera:
 			camera.add_child(knife)
-		print("✅ Нож загружен из сцены knife.tscn")
+		print("✅ Нож загружен из сцены axe.tscn")
 	else:
 		print("⚠️ knife.tscn не найден, создаю заглушку.")
 		knife = Node3D.new()
 		knife.name = "Knife"
-		var script = load("res://scripts/knife.gd")
+		var script = load("res://scripts/axe.gd")
 		if script:
 			knife.set_script(script)
 		knife.position = Vector3(0.3, -0.15, -0.6)

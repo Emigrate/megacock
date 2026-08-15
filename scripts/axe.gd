@@ -1,10 +1,11 @@
 extends Node3D
 
 @export var damage := 50.0
-@export var attack_range := 5       # <--- ИЗМЕНЕНО с 10.0 на 2.5
+@export var attack_range := 2.5
 @export var attack_cooldown := 0.5
 @export var anim_player: AnimationPlayer
-@export var hit_timing := 0.3155  # ← МОЖЕШЬ МЕНЯТЬ В ИНСПЕКТОРЕ!
+@export var hit_timing := 0.3155
+@export var is_auto := false
 
 var can_attack := true
 var _is_animating := false
@@ -16,8 +17,6 @@ var _lean_cur := 0.0
 var _original_position := Vector3.ZERO
 var _original_rotation := Vector3.ZERO
 var _damage_dealt := false
-
-@export var is_auto := false   # <--- ДОБАВЛЕНО для автоогня (хотя нож и так не авто)
 
 
 func _ready() -> void:
@@ -85,12 +84,13 @@ func try_fire() -> bool:
 		_is_animating = true
 		anim_player.play("attack")
 		
-		# ⚡ ЖДЁМ РОВНО hit_timing СЕКУНД И НАНОСИМ УРОН!
+		# --- ВОСПРОИЗВЕДЕНИЕ ЗВУКА ЗАМАХА ---
+		AudioManager.play_axe_swing()
+		
 		await get_tree().create_timer(hit_timing).timeout
 		if not _damage_dealt and _is_animating:
 			_deal_damage()
 		
-		# ЖДЁМ ОКОНЧАНИЯ АНИМАЦИИ
 		var duration: float = attack_anim.length if attack_anim else 0.5
 		await get_tree().create_timer(duration - hit_timing).timeout
 		if anim_player.is_playing():
@@ -116,7 +116,5 @@ func _deal_damage() -> void:
 		var count = SwarmManager.melee_splash(cam.global_position, attack_range, int(damage))
 		if count > 0:
 			_damage_dealt = true
-
-
-func _play_hit_sound() -> void:
-	AudioManager.play_step()
+			# Можно добавить звук попадания, если есть отдельный файл
+			# AudioManager.play_single("res://assets/audio/axe_hit.wav")
