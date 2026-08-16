@@ -102,7 +102,8 @@ func _physics_process(delta: float) -> void:
 		if dist < detection_distance and _can_attack:
 			_animated_sprite.play("attack")
 			_can_attack = false
-			AudioManager.play_ghoul_swing()
+			# --- 3D-ЗВУК АТАКИ ---
+			AudioManager.play_ghoul_swing_3d(global_position)
 			if _target.has_method("take_damage"):
 				_target.take_damage(damage)
 		else:
@@ -120,7 +121,8 @@ func take_damage(amount: float) -> void:
 		_die()
 		return
 
-	AudioManager.play_ghoul_hit()
+	# --- 3D-ЗВУК ПОЛУЧЕНИЯ УРОНА ---
+	AudioManager.play_ghoul_hit_3d(global_position)
 	if _animated_sprite and _animated_sprite.animation != "death":
 		_animated_sprite.modulate = Color.WHITE
 		if _animated_sprite.sprite_frames.has_animation("hit"):
@@ -128,7 +130,8 @@ func take_damage(amount: float) -> void:
 
 
 func _die() -> void:
-	AudioManager.play_ghoul_death()
+	# --- 3D-ЗВУК СМЕРТИ ---
+	AudioManager.play_ghoul_death_3d(global_position)
 	set_physics_process(false)
 	collision_layer = 0
 	collision_mask = 0

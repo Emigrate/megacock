@@ -24,7 +24,7 @@ const HUD_SCRIPT := preload("res://scripts/player_hud.gd")
 
 # --- РОСТ ПЕРСОНАЖА ---
 @export var stand_height: float = 2.5    # ← СДЕЛАЙ ПОБОЛЬШЕ (2.0 или 2.2)
-@export var crouch_height: float = 1.3
+@export var crouch_height: float = 1.5
 
 var hp := max_hp
 

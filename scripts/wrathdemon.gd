@@ -54,7 +54,8 @@ func _ready() -> void:
 		_fly_height = randf_range(fly_height_min, fly_height_max)
 	global_position.y = _fly_height
 
-	AudioManager.play_wrathdemon_spawn()
+	# --- 3D-ЗВУК СПАВНА ---
+	AudioManager.play_wrathdemon_spawn_3d(global_position)
 
 
 func _on_animation_finished() -> void:
@@ -76,7 +77,6 @@ func _on_animation_finished() -> void:
 	if current_anim == "attack":
 		_animated_sprite.play("fly")
 		_has_fired = false
-		# После завершения анимации атаки не сбрасываем _can_attack — таймер уже работает
 
 
 func _physics_process(delta: float) -> void:
@@ -122,18 +122,16 @@ func _physics_process(delta: float) -> void:
 					_has_fired = true
 			return
 		
-		# Запускаем атаку, если можем
 		if _can_attack and _animated_sprite.sprite_frames.has_animation("attack"):
 			_can_attack = false
 			_has_fired = false
-			AudioManager.play_wrathdemon_attack()
+			# --- 3D-ЗВУК АТАКИ ---
+			AudioManager.play_wrathdemon_attack_3d(global_position)
 			_animated_sprite.play("attack")
 			
-			# Случайный интервал до следующей атаки (от 2 до 6 секунд)
 			var next_interval = randf_range(min_attack_interval, max_attack_interval)
 			get_tree().create_timer(next_interval).timeout.connect(func(): 
-				_can_attack = true
-				print("🔄 Следующая атака через ", next_interval, " сек")
+				_can_attack = true				
 			)
 
 
@@ -148,14 +146,14 @@ func _fire_fireball() -> void:
 	var fireball = FIREBALL_SCENE.instantiate()
 	get_tree().current_scene.add_child(fireball)
 	fireball.init(_target, damage, start_pos)
-	print("🔥 Фаербол выпущен!")
 
 
 func take_damage(amount: float) -> void:
 	if not _alive:
 		return
 	hp -= int(amount)
-	AudioManager.play_wrathdemon_hit()
+	# --- 3D-ЗВУК ПОЛУЧЕНИЯ УРОНА ---
+	AudioManager.play_wrathdemon_hit_3d(global_position)
 
 	if _animated_sprite and _animated_sprite.animation != "death":
 		_animated_sprite.modulate = Color.WHITE
@@ -170,7 +168,8 @@ func take_damage(amount: float) -> void:
 
 
 func _die() -> void:
-	AudioManager.play_wrathdemon_die()
+	# --- 3D-ЗВУК СМЕРТИ ---
+	AudioManager.play_wrathdemon_die_3d(global_position)
 	set_physics_process(false)
 	collision_layer = 0
 	collision_mask = 0

@@ -19,7 +19,7 @@ func init(target: Node3D, dmg: float, start_pos: Vector3) -> void:
 		look_at(start_pos + _dir, Vector3.UP)
 
 
-func _physics_process(delta: float) -> void:
+func _physics_process(_delta: float) -> void:
 	if _dir == Vector3.ZERO:
 		return
 	
@@ -40,6 +40,6 @@ func _physics_process(delta: float) -> void:
 		if collider and collider.is_in_group("player") and collider.has_method("take_damage"):
 			collider.take_damage(damage)
 		
-		# В любом случае удаляем фаербол после столкновения
+		# В любом случае удаляем фаербол
 		queue_free()
 		return

@@ -17,10 +17,6 @@ func _ready() -> void:
 			if node is CharacterBody3D:
 				_target = node as Node3D
 				break
-	if _target:
-		print("✅ Моб нашёл игрока: ", _target.name)
-	else:
-		print("❌ Моб НЕ нашёл игрока!")
 
 
 func _physics_process(delta: float) -> void:

@@ -47,7 +47,6 @@ func _ready() -> void:
 
 	_muzzle = find_muzzle()
 	if _muzzle == null:
-		print("⚠️ Muzzle не найден — создаю на (0,0,-0.5)")
 		_muzzle = Node3D.new()
 		_muzzle.name = "Muzzle"
 		_muzzle.position = Vector3(0, 0, -0.5)

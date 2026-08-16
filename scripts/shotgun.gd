@@ -22,14 +22,14 @@ const FLASH_SCRIPT := preload("res://scripts/muzzle_flash.gd")
 @export var flash_start_size := 0.35
 @export var flash_end_size := 0.03
 
-# --- НАСТРОЙКА ТРЕЙСЕРА ---
-@export var tracer_offset := Vector3(0.40, -0.50, -5.7)
+# --- НАСТРОЙКА ТРЕЙСЕРА (подбери под дуло) ---
+@export var tracer_offset := Vector3(0.3, -0.30, -4)   # изменено с -5.7 на -1.8
 
 # --- НАСТРОЙКИ БОБА ---
 @export var bob_position_scale := 0.6
 @export var bob_rotation_scale := 0.6
 
-# --- ИНТЕНСИВНОСТЬ ОТДАЧИ И FOV-ШЕЙКА (настраивай под дробовик) ---
+# --- ИНТЕНСИВНОСТЬ ОТДАЧИ И FOV-ШЕЙКА ---
 @export var camera_shake_intensity := 1
 
 var can_fire := true
@@ -107,8 +107,8 @@ func _generate_normal_angle(max_angle: float, falloff: float = 1.0) -> float:
 	var r3 = randf_range(-1.0, 1.0)
 	var normal = (r1 + r2 + r3) / 3.0
 	var sigma = max_angle / 2.0
-	var scale = sigma / 0.577 / falloff
-	return normal * scale
+	var _scale = sigma / 0.577 / falloff   # переименовано
+	return normal * _scale
 
 
 func try_fire() -> bool:
@@ -160,7 +160,6 @@ func try_fire() -> bool:
 	_recoil_back = recoil_amount * 4.0
 	_recoil_pitch = recoil_amount * 2.0
 
-	# --- ОТДАЧА И FOV-ШЕЙК ---
 	var player = get_tree().get_first_node_in_group("player")
 	if player and player.has_method("add_camera_shake"):
 		player.add_camera_shake(camera_shake_intensity)
@@ -177,7 +176,6 @@ func _reload() -> void:
 	if is_reloading or ammo == magazine_size:
 		return
 	is_reloading = true
-	print("🔫 Помповое действие...")
 	var timer = get_tree().create_timer(reload_time)
 	timer.timeout.connect(_on_reload_finished)
 
@@ -185,7 +183,6 @@ func _reload() -> void:
 func _on_reload_finished() -> void:
 	ammo = magazine_size
 	is_reloading = false
-	print("✅ Готов к выстрелу")
 
 
 func spawn_flash(pos: Vector3) -> void:

@@ -33,7 +33,7 @@ func _ready() -> void:
 		_animated_sprite.play("walk")
 		_animated_sprite.animation_finished.connect(_on_animation_finished)
 
-	# Звук спавна УБРАН
+	# Звук спавна убран
 
 
 func _find_target() -> void:
@@ -104,7 +104,8 @@ func _physics_process(delta: float) -> void:
 		if dist < detection_distance and _can_attack:
 			_animated_sprite.play("attack")
 			_can_attack = false
-			AudioManager.play_sceleton_attack()
+			# --- 3D-ЗВУК АТАКИ ---
+			AudioManager.play_sceleton_attack_3d(global_position)
 			if _target.has_method("take_damage"):
 				_target.take_damage(damage)
 		else:
@@ -122,7 +123,8 @@ func take_damage(amount: float) -> void:
 		_die()
 		return
 
-	AudioManager.play_sceleton_hit()
+	# --- 3D-ЗВУК ПОЛУЧЕНИЯ УРОНА ---
+	AudioManager.play_sceleton_hit_3d(global_position)
 
 	if _animated_sprite and _animated_sprite.animation != "death":
 		_animated_sprite.modulate = Color.WHITE
@@ -131,7 +133,8 @@ func take_damage(amount: float) -> void:
 
 
 func _die() -> void:
-	AudioManager.play_sceleton_death()
+	# --- 3D-ЗВУК СМЕРТИ ---
+	AudioManager.play_sceleton_death_3d(global_position)
 	set_physics_process(false)
 	collision_layer = 0
 	collision_mask = 0
