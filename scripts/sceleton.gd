@@ -1,11 +1,11 @@
 extends CharacterBody3D
 
-# --- НАСТРОЙКИ ---
-@export var speed := 4.0
-@export var hp := 50
-@export var damage := 10.0
+# --- ПАРАМЕТРЫ ---
+@export var speed := 3.5
+@export var hp := 40
+@export var damage := 12.0
 @export var attack_cooldown := 0.8
-@export var detection_distance := 3.0
+@export var detection_distance := 2.0
 @export var rotation_speed := 0.2
 
 var _target: Node3D
@@ -32,6 +32,8 @@ func _ready() -> void:
 		
 		_animated_sprite.play("walk")
 		_animated_sprite.animation_finished.connect(_on_animation_finished)
+
+	# Звук спавна УБРАН
 
 
 func _find_target() -> void:
@@ -72,7 +74,6 @@ func _physics_process(delta: float) -> void:
 	var dir: Vector3 = (_target.global_position - global_position).normalized()
 	var dist: float = global_position.distance_to(_target.global_position)
 
-	# --- ДВИЖЕНИЕ ---
 	if dist > detection_distance * 0.7:
 		velocity.x = dir.x * speed
 		velocity.z = dir.z * speed
@@ -87,22 +88,23 @@ func _physics_process(delta: float) -> void:
 
 	move_and_slide()
 
-	# --- ПОВОРОТ ---
 	if dist > 0.3:
 		var target_angle: float = atan2(dir.x, dir.z)
 		rotation.y = lerp_angle(rotation.y, target_angle, rotation_speed)
 
-	# --- АНИМАЦИИ ---
 	if _animated_sprite and _alive:
 		var anim: String = _animated_sprite.animation
-		if anim in ["hit", "death"]:
+		
+		if anim == "hit" or anim == "death":
 			return
+		
 		if anim == "attack":
 			return
+		
 		if dist < detection_distance and _can_attack:
 			_animated_sprite.play("attack")
 			_can_attack = false
-			AudioManager.play_ghoul_swing()
+			AudioManager.play_sceleton_attack()
 			if _target.has_method("take_damage"):
 				_target.take_damage(damage)
 		else:
@@ -120,7 +122,8 @@ func take_damage(amount: float) -> void:
 		_die()
 		return
 
-	AudioManager.play_ghoul_hit()
+	AudioManager.play_sceleton_hit()
+
 	if _animated_sprite and _animated_sprite.animation != "death":
 		_animated_sprite.modulate = Color.WHITE
 		if _animated_sprite.sprite_frames.has_animation("hit"):
@@ -128,7 +131,7 @@ func take_damage(amount: float) -> void:
 
 
 func _die() -> void:
-	AudioManager.play_ghoul_death()
+	AudioManager.play_sceleton_death()
 	set_physics_process(false)
 	collision_layer = 0
 	collision_mask = 0

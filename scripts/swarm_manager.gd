@@ -1,14 +1,13 @@
 extends Node
 
 const MAX_MOBS := 400
-const HYDRA_SCENE := preload("res://scenes/ghoul.tscn")
+const GHOUL_SCENE := preload("res://scenes/ghoul.tscn")        # гуль (замена гидры)
 const DEMON_SCENE := preload("res://scenes/wrathdemon.tscn")
+const SCELETON_SCENE := preload("res://scenes/skeleton.tscn")
 const GROUND_Y := 0.5
 
 @export var min_spawn_distance := 30.0
 @export var max_spawn_distance := 100.0
-@export var demon_min_height := 8.0    # минимальная высота для демона
-@export var demon_max_height := 25.0   # максимальная высота для демона
 
 var _mobs: Array = []
 var _player: Node3D
@@ -28,7 +27,7 @@ func _ready() -> void:
 	add_child(_spawn_timer)
 	_spawn_timer.start()
 
-	print("🟢 Спавн мобов запущен (гидра 1/сек, демон 1/2сек)")
+	print("🟢 Спавн мобов: гуль 1/сек, демон 1/2сек, скелет 1/2сек")
 
 
 func _on_spawn_tick() -> void:
@@ -41,21 +40,27 @@ func _on_spawn_tick() -> void:
 
 	_spawn_counter += 1
 
+	# --- ГУЛЬ КАЖДУЮ СЕКУНДУ (каждый 2-й тик) ---
 	if _spawn_counter % 2 == 0:
-		_spawn_hydra()
+		_spawn_ghoul()
 
+	# --- ДЕМОН И СКЕЛЕТ ЧЕРЕЗ РАЗ (каждый 4-й тик) ---
 	if _spawn_counter % 4 == 0:
-		_spawn_demon()
+		if randf() < 0.5:
+			_spawn_demon()
+		else:
+			_spawn_sceleton()
 
 
-func _spawn_hydra() -> void:
+func _spawn_ghoul() -> void:
 	var pos = _get_spawn_position()
 	if pos == Vector3.ZERO:
 		return
 
-	var mob_root = HYDRA_SCENE.instantiate()
+	var mob_root = GHOUL_SCENE.instantiate()
 	var mob = _find_mob_body(mob_root)
 	if mob == null:
+		print("⚠️ CharacterBody3D не найден в сцене гуля!")
 		return
 	get_tree().current_scene.add_child(mob_root)
 	mob.global_position = pos
@@ -67,16 +72,31 @@ func _spawn_demon() -> void:
 	if pos == Vector3.ZERO:
 		return
 
-	# --- СПАВНИМ ДЕМОНА СРАЗУ В НЕБЕ ---
-	var height = randf_range(demon_min_height, demon_max_height)
+	var height = randf_range(8.0, 25.0)
 	var spawn_pos = Vector3(pos.x, height, pos.z)
 
 	var mob_root = DEMON_SCENE.instantiate()
 	var mob = _find_mob_body(mob_root)
 	if mob == null:
+		print("⚠️ CharacterBody3D не найден в сцене демона!")
 		return
 	get_tree().current_scene.add_child(mob_root)
 	mob.global_position = spawn_pos
+	_mobs.append(mob)
+
+
+func _spawn_sceleton() -> void:
+	var pos = _get_spawn_position()
+	if pos == Vector3.ZERO:
+		return
+
+	var mob_root = SCELETON_SCENE.instantiate()
+	var mob = _find_mob_body(mob_root)
+	if mob == null:
+		print("⚠️ CharacterBody3D не найден в сцене скелета!")
+		return
+	get_tree().current_scene.add_child(mob_root)
+	mob.global_position = pos
 	_mobs.append(mob)
 
 

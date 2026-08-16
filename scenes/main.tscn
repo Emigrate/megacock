@@ -39,8 +39,6 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -104.56091, 12.293012, -42.01
 
 [node name="CharacterBody3D" type="CharacterBody3D" parent="Player" unique_id=9304692]
 transform = Transform3D(-0.6811342, 0, 0.7321586, 0, 1, 0, -0.7321586, 0, -0.6811342, 0, 1.736402, 0)
-collision_layer = 3
-collision_mask = 3
 script = ExtResource("1_tbgi4")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Player/CharacterBody3D" unique_id=1147056309]

@@ -25,22 +25,25 @@ const DASH_SOUND := "res://assets/audio/dash.wav"
 const AXE_SWING_SOUND := "res://assets/audio/axe_swing1.wav"
 const SHOTGUN_SHOT_SOUND := "res://assets/audio/shotgun_shot1.wav"
 
-const HYDRA_DIE_SOUNDS := [
-	"res://assets/audio/hydra_die1.wav",
-	"res://assets/audio/hydra_die2.wav",
-	"res://assets/audio/hydra_die3.wav",
-]
-
-# --- ЗВУКИ ДЕМОНА ---
-const WRATHDEMON_SPAWN_SOUND := "res://assets/audio/wrathdemon_spawn.ogg"
-const WRATHDEMON_HIT_SOUND := "res://assets/audio/wrathdemon_hit.ogg"
-const WRATHDEMON_DIE_SOUND := "res://assets/audio/wrathdemon_die.ogg"
-
 # --- ЗВУКИ ГУЛЯ ---
 const GHOUL_SPAWN_SOUND := "res://assets/audio/ghoul_spawn.ogg"
 const GHOUL_HIT_SOUND := "res://assets/audio/ghoul_hit.ogg"
 const GHOUL_DEATH_SOUND := "res://assets/audio/ghoul_death.ogg"
 const GHOUL_SWING_SOUND := "res://assets/audio/ghoul_swing.ogg"
+
+# --- ЗВУКИ ДЕМОНА ---
+const WRATHDEMON_SPAWN_SOUND := "res://assets/audio/wrathdemon_spawn.ogg"
+const WRATHDEMON_HIT_SOUND := "res://assets/audio/wrathdemon_hit.ogg"
+const WRATHDEMON_DIE_SOUND := "res://assets/audio/wrathdemon_die.ogg"
+const WRATHDEMON_ATTACK_SOUND := "res://assets/audio/wrathdemon_attack.ogg"
+
+# --- ЗВУКИ СКЕЛЕТА ---
+const SCELETON_HIT_SOUND := "res://assets/audio/sceleton_hit.wav"
+const SCELETON_DEATH_SOUND := "res://assets/audio/sceleton_death.ogg"
+const SCELETON_ATTACK_SOUNDS := [
+	"res://assets/audio/sceleton_attack1.ogg",
+	"res://assets/audio/sceleton_attack2.ogg",
+]
 
 # --- РЕГУЛИРОВКА ГРОМКОСТИ (в дБ) ---
 @export var master_volume_db: float = 0.0
@@ -50,19 +53,24 @@ const GHOUL_SWING_SOUND := "res://assets/audio/ghoul_swing.ogg"
 @export var land_volume_db: float = -25.0
 @export var dash_volume_db: float = -25.0
 @export var axe_swing_volume_db: float = -14.0
-@export var hydra_die_volume_db: float = -20.0
 @export var shotgun_shot_volume_db: float = -13.0
-
-# --- ГРОМКОСТЬ ДЕМОНА ---
-@export var wrathdemon_spawn_volume_db: float = -40.0
-@export var wrathdemon_hit_volume_db: float = -10.0
-@export var wrathdemon_die_volume_db: float = -30.0
 
 # --- ГРОМКОСТЬ ГУЛЯ ---
 @export var ghoul_spawn_volume_db: float = -20.0
 @export var ghoul_hit_volume_db: float = -20.0
 @export var ghoul_death_volume_db: float = -20.0
 @export var ghoul_swing_volume_db: float = -20.0
+
+# --- ГРОМКОСТЬ ДЕМОНА ---
+@export var wrathdemon_spawn_volume_db: float = -40.0
+@export var wrathdemon_hit_volume_db: float = -10.0
+@export var wrathdemon_die_volume_db: float = -30.0
+@export var wrathdemon_attack_volume_db: float = -25.0   # <-- поднял громкость
+
+# --- ГРОМКОСТЬ СКЕЛЕТА ---
+@export var sceleton_hit_volume_db: float = -15.0
+@export var sceleton_death_volume_db: float = -25.0
+@export var sceleton_attack_volume_db: float = -15.0
 
 
 func _get_camera() -> Camera3D:
@@ -103,8 +111,12 @@ func play_single(path: String, volume_db := -25.0) -> void:
 	p.volume_db = volume_db + master_volume_db
 	p.finished.connect(p.queue_free)
 	p.play()
+	
+	# --- ОТЛАДКА (вывод в консоль) ---
+	print("🔊 Играем звук: ", path, " громкость: ", p.volume_db)
 
 
+# --- ЗВУКИ ИГРОКА И ОРУЖИЯ ---
 func play_step() -> void:
 	play_random(STEP_SOUNDS, step_volume_db)
 
@@ -129,25 +141,8 @@ func play_axe_swing() -> void:
 	play_single(AXE_SWING_SOUND, axe_swing_volume_db)
 
 
-func play_hydra_die() -> void:
-	play_random(HYDRA_DIE_SOUNDS, hydra_die_volume_db)
-
-
 func play_shotgun_shot() -> void:
 	play_single(SHOTGUN_SHOT_SOUND, shotgun_shot_volume_db)
-
-
-# --- ЗВУКИ ДЕМОНА ---
-func play_wrathdemon_spawn() -> void:
-	play_single(WRATHDEMON_SPAWN_SOUND, wrathdemon_spawn_volume_db)
-
-
-func play_wrathdemon_hit() -> void:
-	play_single(WRATHDEMON_HIT_SOUND, wrathdemon_hit_volume_db)
-
-
-func play_wrathdemon_die() -> void:
-	play_single(WRATHDEMON_DIE_SOUND, wrathdemon_die_volume_db)
 
 
 # --- ЗВУКИ ГУЛЯ ---
@@ -165,3 +160,33 @@ func play_ghoul_death() -> void:
 
 func play_ghoul_swing() -> void:
 	play_single(GHOUL_SWING_SOUND, ghoul_swing_volume_db)
+
+
+# --- ЗВУКИ ДЕМОНА ---
+func play_wrathdemon_spawn() -> void:
+	play_single(WRATHDEMON_SPAWN_SOUND, wrathdemon_spawn_volume_db)
+
+
+func play_wrathdemon_hit() -> void:
+	play_single(WRATHDEMON_HIT_SOUND, wrathdemon_hit_volume_db)
+
+
+func play_wrathdemon_die() -> void:
+	play_single(WRATHDEMON_DIE_SOUND, wrathdemon_die_volume_db)
+
+
+func play_wrathdemon_attack() -> void:
+	play_single(WRATHDEMON_ATTACK_SOUND, wrathdemon_attack_volume_db)
+
+
+# --- ЗВУКИ СКЕЛЕТА ---
+func play_sceleton_hit() -> void:
+	play_single(SCELETON_HIT_SOUND, sceleton_hit_volume_db)
+
+
+func play_sceleton_death() -> void:
+	play_single(SCELETON_DEATH_SOUND, sceleton_death_volume_db)
+
+
+func play_sceleton_attack() -> void:
+	play_random(SCELETON_ATTACK_SOUNDS, sceleton_attack_volume_db)

@@ -1,0 +1,21 @@
+[gd_scene format=3 uid="uid://c80fbivsx4axc"]
+
+[ext_resource type="Script" uid="uid://cvl7skpk8fq0w" path="res://scenes/fireball.gd" id="1_3s14c"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_60rxr"]
+albedo_color = Color(0.97684675, 0.7926795, 0, 1)
+
+[sub_resource type="SphereMesh" id="SphereMesh_lxk3t"]
+material = SubResource("StandardMaterial3D_60rxr")
+
+[sub_resource type="SphereShape3D" id="SphereShape3D_lxk3t"]
+
+[node name="CharacterBody3D" type="CharacterBody3D" unique_id=1268241866]
+collision_layer = 2
+script = ExtResource("1_3s14c")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="." unique_id=30174364]
+mesh = SubResource("SphereMesh_lxk3t")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="." unique_id=207274378]
+shape = SubResource("SphereShape3D_lxk3t")
