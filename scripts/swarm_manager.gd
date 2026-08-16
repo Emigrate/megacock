@@ -10,6 +10,7 @@ const GROUND_Y := 0.5
 @export var max_spawn_distance := 100.0
 
 var _mobs: Array = []
+var _fireballs: Array = []          # список активных фаерболов
 var _player: Node3D
 var _nav_map: RID = RID()
 var _spawn_timer: Timer
@@ -142,18 +143,41 @@ func _find_mob_body(node: Node) -> CharacterBody3D:
 	return null
 
 
-func get_count() -> int:
-	_clean_mobs()
-	return _mobs.size()
+# --- РЕГИСТРАЦИЯ ФАЕРБОЛОВ ---
+func register_fireball(fb: Node3D) -> void:
+	if not _fireballs.has(fb):
+		_fireballs.append(fb)
 
 
-func clear_all() -> void:
-	for mob in _mobs:
-		if is_instance_valid(mob):
-			mob.queue_free()
-	_mobs.clear()
+func unregister_fireball(fb: Node3D) -> void:
+	if _fireballs.has(fb):
+		_fireballs.erase(fb)
 
 
+# --- ПРОВЕРКА ПОПАДАНИЯ В ФАЕРБОЛЫ ---
+func damage_fireball_ray(origin: Vector3, dir: Vector3, max_range: float, damage: float) -> bool:
+	var best_dist: float = max_range
+	var best_fb = null
+	for fb in _fireballs:
+		if not is_instance_valid(fb):
+			continue
+		if fb.has_method("is_exploded") and fb.is_exploded():
+			continue
+		var to_fb: Vector3 = fb.global_position - origin
+		var proj: float = to_fb.dot(dir)
+		if proj < 0 or proj > max_range:
+			continue
+		var closest: Vector3 = origin + dir * proj
+		if closest.distance_to(fb.global_position) < 0.6 and proj < best_dist:
+			best_dist = proj
+			best_fb = fb
+	if best_fb and best_fb.has_method("take_damage"):
+		best_fb.take_damage(damage)
+		return true
+	return false
+
+
+# --- ОСТАЛЬНЫЕ МЕТОДЫ (без изменений) ---
 func get_hit_position(origin: Vector3, dir: Vector3, max_range: float) -> Vector3:
 	var best_dist: float = max_range
 	var best_pos: Vector3 = Vector3.ZERO
@@ -207,6 +231,18 @@ func aoe_damage(center: Vector3, radius: float, damage: int) -> int:
 				mob.take_damage(damage)
 				killed += 1
 	return killed
+
+
+func get_count() -> int:
+	_clean_mobs()
+	return _mobs.size()
+
+
+func clear_all() -> void:
+	for mob in _mobs:
+		if is_instance_valid(mob):
+			mob.queue_free()
+	_mobs.clear()
 
 
 func get_all_mob_positions() -> Array[Vector3]:

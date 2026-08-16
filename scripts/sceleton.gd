@@ -5,7 +5,7 @@ extends CharacterBody3D
 @export var hp := 40
 @export var damage := 12.0
 @export var attack_cooldown := 0.8
-@export var detection_distance := 2.0
+@export var detection_distance := 3.0
 @export var rotation_speed := 0.2
 
 var _target: Node3D
