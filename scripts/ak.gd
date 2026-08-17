@@ -24,7 +24,7 @@ const FLASH_SCRIPT := preload("res://scripts/muzzle_flash.gd")
 @export var bob_position_scale := 0.2
 @export var bob_rotation_scale := 0.15
 
-# --- ИНТЕНСИВНОСТЬ ОТДАЧИ И FOV-ШЕЙКА (настраивай под АК) ---
+# --- ИНТЕНСИВНОСТЬ ОТДАЧИ И FOV-ШЕЙКА ---
 @export var camera_shake_intensity := 0.3
 
 var can_fire := true
@@ -152,7 +152,8 @@ func try_fire() -> bool:
 	else:
 		spread_degrees = 1.5
 
-	AudioManager.play_ak_shot()
+	# --- ЗВУК ВЫСТРЕЛА (2D, на шину Shots) ---
+	AudioManager.play_ak_shot_2d()
 	return true
 
 

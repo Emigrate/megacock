@@ -20,7 +20,7 @@ const FLASH_SCRIPT := preload("res://scripts/muzzle_flash.gd")
 # --- НАСТРОЙКА ТРЕЙСЕРА ---
 @export var tracer_offset := Vector3(0.40, -0.55, -2.3)
 
-# --- ИНТЕНСИВНОСТЬ ОТДАЧИ И FOV-ШЕЙКА (настраивай под пистолет) ---
+# --- ИНТЕНСИВНОСТЬ ОТДАЧИ И FOV-ШЕЙКА ---
 @export var camera_shake_intensity := 0.1
 
 var can_fire := true
@@ -157,7 +157,8 @@ func try_fire() -> bool:
 	else:
 		spread_degrees = 0.8
 
-	AudioManager.play_shot()
+	# --- ЗВУК ВЫСТРЕЛА (2D, на шину Shots) ---
+	AudioManager.play_shot_2d()
 	return true
 
 

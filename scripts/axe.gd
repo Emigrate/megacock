@@ -84,8 +84,8 @@ func try_fire() -> bool:
 		_is_animating = true
 		anim_player.play("attack")
 		
-		# --- ВОСПРОИЗВЕДЕНИЕ ЗВУКА ЗАМАХА ---
-		AudioManager.play_axe_swing()
+		# --- ЗВУК ЗАМАХА (2D, на шину Shots) ---
+		AudioManager.play_axe_swing_2d()
 		
 		await get_tree().create_timer(hit_timing).timeout
 		if not _damage_dealt and _is_animating:
@@ -116,5 +116,4 @@ func _deal_damage() -> void:
 		var count = SwarmManager.melee_splash(cam.global_position, attack_range, int(damage))
 		if count > 0:
 			_damage_dealt = true
-			# Можно добавить звук попадания, если есть отдельный файл
-			# AudioManager.play_single("res://assets/audio/axe_hit.wav")
+			# Можно добавить звук попадания, если есть

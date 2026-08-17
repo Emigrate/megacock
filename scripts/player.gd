@@ -1,7 +1,5 @@
 extends CharacterBody3D
 
-const HUD_SCRIPT := preload("res://scripts/player_hud.gd")
-
 @export var move_speed: float = 23.0
 @export var gravity: float = 65.0
 @export var jump_velocity: float = 20.0
@@ -23,7 +21,7 @@ const HUD_SCRIPT := preload("res://scripts/player_hud.gd")
 @export var max_hp := 100
 
 # --- РОСТ ПЕРСОНАЖА ---
-@export var stand_height: float = 2.5    # ← СДЕЛАЙ ПОБОЛЬШЕ (2.0 или 2.2)
+@export var stand_height: float = 2.5
 @export var crouch_height: float = 1.5
 
 var hp := max_hp
@@ -46,10 +44,8 @@ var _dash_timer := 0.0
 var _fov_shift := 0.0
 var _base_fov := 90.0
 
-var _hud: CanvasLayer
 var _crosshair_visible := false
 var _noclip := false
-var _invuln_timer := 0.0
 
 var _step_timer := 0.0
 var _step_interval := 0.4
@@ -90,11 +86,6 @@ func _ready() -> void:
 	stand_check.height = stand_height
 
 	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
-
-	_hud = HUD_SCRIPT.new()
-	add_child(_hud)
-	_crosshair_visible = false
-	_hud.set_crosshair_visible(false)
 
 	add_to_group("player")
 	_base_fov = 90.0
@@ -350,8 +341,6 @@ func _physics_process(delta: float) -> void:
 	if get_tree().paused:
 		return
 
-	_invuln_timer -= delta
-
 	var input_dir := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
 
 	if _noclip:
@@ -364,7 +353,6 @@ func _physics_process(delta: float) -> void:
 		velocity = fly_dir * noclip_speed
 		move_and_slide()
 		_was_in_air = false
-		_update_hud()
 		return
 
 	var direction := (transform.basis * Vector3(input_dir.x, 0.0, input_dir.y)).normalized()
@@ -465,7 +453,6 @@ func _physics_process(delta: float) -> void:
 		if current_weapon and current_weapon.has_method("try_fire"):
 			current_weapon.try_fire()
 
-	_update_hud()
 	move_and_slide()
 
 	if _was_in_air and is_on_floor():
@@ -546,7 +533,8 @@ func _toggle_noclip() -> void:
 
 func _toggle_crosshair() -> void:
 	_crosshair_visible = not _crosshair_visible
-	_hud.set_crosshair_visible(_crosshair_visible)
+	# Прицел пока отключён, так как в новом UI он не реализован.
+	# Если хочешь его вернуть — добавь отдельную логику.
 	print("🔫 Прицел: ", "ВКЛ" if _crosshair_visible else "ВЫКЛ")
 
 
@@ -591,16 +579,18 @@ func can_stand_up() -> bool:
 
 
 func take_damage(amount: float) -> void:
-	if _invuln_timer > 0.0:
-		return
 	hp -= int(amount)
-	_invuln_timer = 1.0
-	print("💔 Игрок получил урон! HP: ", hp)
+	
+	# --- ЗВУКИ ИГРОКА ---
 	if hp <= 0:
+		AudioManager.play_player_death_3d(global_position)
 		hp = max_hp
 		global_position = Vector3(0, 2, 0)
 		velocity = Vector3.ZERO
 		print("💀 Игрок умер, респавн")
+	else:
+		AudioManager.play_player_hurt_3d(global_position)
+		print("💔 Игрок получил урон! HP: ", hp)
 
 
 func spawn_enemy_at_crosshair() -> void:
@@ -614,11 +604,3 @@ func spawn_enemy_random() -> void:
 	var dist := randf_range(5.0, 15.0)
 	var pos := global_position + Vector3(cos(angle) * dist, 2.0, sin(angle) * dist)
 	SwarmManager.spawn(pos)
-
-
-func _update_hud() -> void:
-	var horiz := Vector2(velocity.x, velocity.z).length()
-	var state := "NOCLIP" if _noclip else ("в воздухе" if not is_on_floor() else "на земле")
-	_hud.set_speed("Скорость: %d м/с (%s)" % [horiz, state])
-	_hud.set_hp(hp, max_hp)
-	_hud.set_mob_count(SwarmManager.get_count())

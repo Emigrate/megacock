@@ -14,12 +14,17 @@ config/name="TRIPPIE"
 run/main_scene="uid://c6xveif43b3gj"
 config/features=PackedStringArray("4.7", "Forward Plus")
 
+[audio]
+
+buses/default_bus_layout="uid://unng3ccdo44r"
+
 [autoload]
 
 ExpManager="*uid://b0e8lnccwmjyt"
 AudioManager="*uid://cynivwym1u0lu"
 SwarmManager="*uid://btjnjrt0wu5hj"
 ExpUi="*uid://ji72grvl45k2"
+PlayerUi="*uid://ddm3kgg1nwp52"
 
 [display]
 
@@ -33,6 +38,11 @@ enabled=PackedStringArray("res://addons/gdterm/plugin.cfg")
 [filesystem]
 
 import/blender/enabled=false
+
+[gui]
+
+theme/default_theme_scale=1.1099999999999999
+theme/custom_font="uid://71qbvv3rjp7"
 
 [input]
 

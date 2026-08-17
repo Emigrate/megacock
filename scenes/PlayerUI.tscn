@@ -1,0 +1,32 @@
+[gd_scene format=3 uid="uid://ddm3kgg1nwp52"]
+
+[ext_resource type="Script" uid="uid://bhy5emjs6x6u2" path="res://scripts/player_ui.gd" id="1_4cvch"]
+
+[node name="PlayerUi" type="Control" unique_id=122832680]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_4cvch")
+
+[node name="FPS" type="Label" parent="." unique_id=1108626293]
+layout_mode = 0
+offset_right = 40.0
+offset_bottom = 22.0
+
+[node name="HP" type="Label" parent="." unique_id=458931746]
+layout_mode = 0
+offset_left = 112.0
+offset_top = 448.0
+offset_right = 456.0
+offset_bottom = 709.0
+
+[node name="SPEED" type="Label" parent="." unique_id=743777509]
+layout_mode = 0
+offset_left = 561.0
+offset_top = 25.0
+offset_right = 601.0
+offset_bottom = 113.0
+theme_override_font_sizes/font_size = 24

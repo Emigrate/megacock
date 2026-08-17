@@ -19,7 +19,7 @@ func _ready():
 			print("❌ ExpUI: менеджер не найден.")
 			exp_bar.max_value = 100
 			exp_bar.value = 0
-			level_label.text = "Lvl 1"
+			level_label.text = "LVL 1"
 
 func _connect_manager():
 	print("✅ ExpUI: подключён к ExpManager!")
@@ -40,7 +40,7 @@ func _update_ui(current_exp: int, exp_needed: int):
 	_flash_fill()
 
 func _update_level(new_level: int):
-	level_label.text = "Lvl " + str(new_level)
+	level_label.text = "LVL " + str(new_level)
 
 func _animate_bar(target_value: int):
 	if _tween and _tween.is_valid():

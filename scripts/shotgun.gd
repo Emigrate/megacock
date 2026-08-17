@@ -22,8 +22,8 @@ const FLASH_SCRIPT := preload("res://scripts/muzzle_flash.gd")
 @export var flash_start_size := 0.35
 @export var flash_end_size := 0.03
 
-# --- НАСТРОЙКА ТРЕЙСЕРА (подбери под дуло) ---
-@export var tracer_offset := Vector3(0.3, -0.30, -4)   # изменено с -5.7 на -1.8
+# --- НАСТРОЙКА ТРЕЙСЕРА ---
+@export var tracer_offset := Vector3(0.3, -0.30, -4)
 
 # --- НАСТРОЙКИ БОБА ---
 @export var bob_position_scale := 0.6
@@ -37,7 +37,6 @@ var _model: Node3D
 var ammo := 6
 var is_reloading := false
 
-# --- ОТДАЧА И БОБ ---
 var _bob_x := 0.0
 var _bob_y := 0.0
 var _bob_moving := false
@@ -107,7 +106,7 @@ func _generate_normal_angle(max_angle: float, falloff: float = 1.0) -> float:
 	var r3 = randf_range(-1.0, 1.0)
 	var normal = (r1 + r2 + r3) / 3.0
 	var sigma = max_angle / 2.0
-	var _scale = sigma / 0.577 / falloff   # переименовано
+	var _scale = sigma / 0.577 / falloff
 	return normal * _scale
 
 
@@ -164,7 +163,8 @@ func try_fire() -> bool:
 	if player and player.has_method("add_camera_shake"):
 		player.add_camera_shake(camera_shake_intensity)
 
-	AudioManager.play_shotgun_shot()
+	# --- ЗВУК ВЫСТРЕЛА (2D, на шину Shots) ---
+	AudioManager.play_shotgun_shot_2d()
 	return true
 
 

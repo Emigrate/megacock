@@ -30,6 +30,6 @@ grow_vertical = 2
 [node name="Label" type="Label" parent="ProgressBar" unique_id=1161692995]
 layout_mode = 0
 offset_left = 6.0
-offset_top = -1.0
+offset_top = -4.0
 offset_right = 46.0
-offset_bottom = 22.0
+offset_bottom = 19.0
