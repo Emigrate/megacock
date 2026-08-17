@@ -17,6 +17,12 @@ extends CharacterBody3D
 # --- Ссылка на фаербол ---
 const FIREBALL_SCENE := preload("res://scenes/fireball.tscn")
 
+# --- ДОБАВЛЕНО: НАСТРОЙКИ ДРОПА ЭКСПЫ ---
+@export var exp_drop_min: int = 25
+@export var exp_drop_max: int = 25
+@export var exp_orb_scene: PackedScene
+# -------------------------------------------
+
 var _target: Node3D
 var _alive := true
 var _animated_sprite: AnimatedSprite3D = null
@@ -170,6 +176,10 @@ func take_damage(amount: float) -> void:
 func _die() -> void:
 	# --- 3D-ЗВУК СМЕРТИ ---
 	AudioManager.play_wrathdemon_die_3d(global_position)
+	
+	# --- ДОБАВЛЕНО: ДРОП ЭКСПЫ ---
+	_drop_exp()
+	
 	set_physics_process(false)
 	collision_layer = 0
 	collision_mask = 0
@@ -194,3 +204,18 @@ func _die() -> void:
 
 	await tween.finished
 	queue_free()
+
+
+# --- ДОБАВЛЕНО: ФУНКЦИЯ ДРОПА ЭКСПЫ ---
+func _drop_exp() -> void:
+	if exp_orb_scene == null:
+		var default_path = "res://scenes/exp_orb.tscn"
+		if ResourceLoader.exists(default_path):
+			exp_orb_scene = load(default_path)
+		else:
+			return
+
+	var orb = exp_orb_scene.instantiate()
+	orb.exp_amount = randi_range(exp_drop_min, exp_drop_max)
+	orb.position = global_position + Vector3(0, 0.3, 0)
+	get_tree().current_scene.add_child(orb)

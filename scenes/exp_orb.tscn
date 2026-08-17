@@ -1,0 +1,21 @@
+[gd_scene format=3 uid="uid://dbogcfl8u75e0"]
+
+[ext_resource type="Script" uid="uid://x00e7lat2xlx" path="res://scripts/exp_orb.gd" id="1_4bplq"]
+[ext_resource type="Texture2D" uid="uid://bcuy707wtc5nu" path="res://assets/textures/exp_orb.png" id="2_8fsse"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_60rxr"]
+radius = 0.8613281
+height = 1.7226563
+
+[node name="EXP_Orb" type="Area3D" unique_id=1622612238]
+script = ExtResource("1_4bplq")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="." unique_id=438796459]
+transform = Transform3D(0.32, 0, 0, 0, 0.32, 0, 0, 0, 0.32, 0, 1.6004152, 0)
+shape = SubResource("CapsuleShape3D_60rxr")
+
+[node name="Sprite3D" type="Sprite3D" parent="." unique_id=1369756737]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5937446, 0)
+pixel_size = 0.0013
+billboard = 1
+texture = ExtResource("2_8fsse")

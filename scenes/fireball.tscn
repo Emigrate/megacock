@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://c80fbivsx4axc"]
 
-[ext_resource type="Script" uid="uid://cvl7skpk8fq0w" path="res://scenes/fireball.gd" id="1_3s14c"]
+[ext_resource type="Script" uid="uid://cvl7skpk8fq0w" path="res://scripts/fireball.gd" id="1_3s14c"]
 [ext_resource type="Texture2D" uid="uid://5ruowkd2o3sw" path="res://assets/textures/wrathdemon_projectile_explosion1.png" id="2_wyo3q"]
 [ext_resource type="Texture2D" uid="uid://cimexbyi5ys4n" path="res://assets/textures/wrathdemon_projectile_explosion4.png" id="5_pq144"]
 [ext_resource type="Texture2D" uid="uid://cfv05wfwuxyoe" path="res://assets/textures/wrathdemon_projectile_explosion5.png" id="6_0rtms"]

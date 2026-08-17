@@ -16,8 +16,10 @@ config/features=PackedStringArray("4.7", "Forward Plus")
 
 [autoload]
 
+ExpManager="*uid://b0e8lnccwmjyt"
 AudioManager="*uid://cynivwym1u0lu"
 SwarmManager="*uid://btjnjrt0wu5hj"
+ExpUi="*uid://ji72grvl45k2"
 
 [display]
 

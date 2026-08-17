@@ -85,7 +85,6 @@ animations = [{
 transform = Transform3D(3.545, 0, 0, 0, 3.545, 0, 0, 0, 3.545, 0, 0, 0)
 
 [node name="CharacterBody3D" type="CharacterBody3D" parent="." unique_id=1746911253]
-collision_layer = 3
 script = ExtResource("1_ghshk")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="CharacterBody3D" unique_id=1319399705]
