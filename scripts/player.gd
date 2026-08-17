@@ -92,12 +92,12 @@ func _ready() -> void:
 	camera.fov = _base_fov
 
 	# --- ЗАГРУЗКА ОРУЖИЯ (4 слота) ---
-	var pistol = $Head/CameraShake/Camera3D/Weapon
-	if pistol == null:
-		print("⚠️ Пистолет не найден, создаю заглушку.")
-		pistol = _create_pistol_node()
-		camera.add_child(pistol)
-	else:
+	
+	# 1. Пистолет (теперь из сцены)
+	var pistol = null
+	var pistol_scene = load("res://scenes/weapons/pistol.tscn")
+	if pistol_scene != null:
+		pistol = pistol_scene.instantiate()
 		pistol.name = "Pistol"
 		if pistol.get_script() == null:
 			var script = load("res://scripts/pistol.gd")
@@ -105,9 +105,20 @@ func _ready() -> void:
 				pistol.set_script(script)
 		if pistol.get_parent() != camera:
 			camera.add_child(pistol)
+		print("✅ Пистолет загружен")
+	else:
+		print("⚠️ pistol.tscn не найден, создаю заглушку.")
+		pistol = Node3D.new()
+		pistol.name = "Pistol"
+		var script = load("res://scripts/pistol.gd")
+		if script:
+			pistol.set_script(script)
+		pistol.position = Vector3(0.4, -0.5, -0.5)
+		camera.add_child(pistol)
 
+	# 2. Топор
 	var axe = null
-	var axe_scene = load("res://scenes/axe.tscn")
+	var axe_scene = load("res://scenes/weapons/axe.tscn")
 	if axe_scene != null:
 		axe = axe_scene.instantiate()
 		axe.name = "Axe"
@@ -128,8 +139,9 @@ func _ready() -> void:
 		axe.position = Vector3(0.3, -0.15, -0.6)
 		camera.add_child(axe)
 
+	# 3. Калаш
 	var ak = null
-	var ak_scene = load("res://scenes/ak.tscn")
+	var ak_scene = load("res://scenes/weapons/ak.tscn")
 	if ak_scene != null:
 		ak = ak_scene.instantiate()
 		ak.name = "AK47"
@@ -150,8 +162,9 @@ func _ready() -> void:
 		if ak.get_parent() != camera:
 			camera.add_child(ak)
 
+	# 4. Дробовик
 	var shotgun = null
-	var shotgun_scene = load("res://scenes/shotgun.tscn")
+	var shotgun_scene = load("res://scenes/weapons/shotgun.tscn")
 	if shotgun_scene != null:
 		shotgun = shotgun_scene.instantiate()
 		shotgun.name = "Shotgun"
@@ -185,19 +198,6 @@ func _ready() -> void:
 	# --- Устанавливаем текущую высоту ---
 	current_height = stand_height
 	target_height = stand_height
-
-
-func _create_pistol_node() -> Node3D:
-	var pistol = Node3D.new()
-	pistol.name = "Pistol"
-	var script = load("res://scripts/pistol.gd")
-	if script:
-		pistol.set_script(script)
-	var muzzle = Node3D.new()
-	muzzle.name = "Muzzle"
-	muzzle.position = Vector3(0, 0, -0.5)
-	pistol.add_child(muzzle)
-	return pistol
 
 
 func _collect_animation_players(node: Node) -> void:
@@ -533,8 +533,6 @@ func _toggle_noclip() -> void:
 
 func _toggle_crosshair() -> void:
 	_crosshair_visible = not _crosshair_visible
-	# Прицел пока отключён, так как в новом UI он не реализован.
-	# Если хочешь его вернуть — добавь отдельную логику.
 	print("🔫 Прицел: ", "ВКЛ" if _crosshair_visible else "ВЫКЛ")
 
 

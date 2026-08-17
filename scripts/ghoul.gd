@@ -154,7 +154,7 @@ func _die() -> void:
 # --- ФУНКЦИЯ ДРОПА ЭКСПЫ (ИСПРАВЛЕН ПОРЯДОК) ---
 func _drop_exp() -> void:
 	if exp_orb_scene == null:
-		var default_path = "res://scenes/exp_orb.tscn"
+		var default_path = "res://scenes/entity/exp_orb.tscn"
 		if ResourceLoader.exists(default_path):
 			exp_orb_scene = load(default_path)
 		else:

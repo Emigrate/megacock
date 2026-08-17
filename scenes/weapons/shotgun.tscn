@@ -1,0 +1,13 @@
+[gd_scene format=3 uid="uid://cnf6eyvjailyw"]
+
+[ext_resource type="PackedScene" uid="uid://c3st2biuscrm2" path="res://assets/models/weapons/ShotgunPSX.glb" id="1_gnj2g"]
+[ext_resource type="Script" uid="uid://8re5lb1w73xt" path="res://scripts/shotgun.gd" id="2_1ya1i"]
+
+[node name="Node3D" type="Node3D" unique_id=1780588016]
+
+[node name="Shotgun" type="Node3D" parent="." unique_id=794876364]
+transform = Transform3D(-0.012804491, 0.00095838204, 0.29919434, 0.0076333927, 0.29971448, 0, -0.17436391, 0.013050674, -0.02197147, 0.19078377, -0.18910003, -0.35786524)
+script = ExtResource("2_1ya1i")
+
+[node name="ShotgunPSX" parent="Shotgun" unique_id=1096242161 instance=ExtResource("1_gnj2g")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.03222537, 1.1920929e-07, -0.09619737)

@@ -1,9 +1,9 @@
 extends Node
 
 const MAX_MOBS := 400
-const GHOUL_SCENE := preload("res://scenes/ghoul.tscn")
-const DEMON_SCENE := preload("res://scenes/wrathdemon.tscn")
-const SCELETON_SCENE := preload("res://scenes/skeleton.tscn")
+const GHOUL_SCENE := preload("res://scenes/entity/ghoul.tscn")
+const DEMON_SCENE := preload("res://scenes/entity/wrathdemon.tscn")
+const SCELETON_SCENE := preload("res://scenes/entity/skeleton.tscn")
 const GROUND_Y := 0.5
 
 @export var min_spawn_distance := 30.0

@@ -1,0 +1,11 @@
+[gd_scene format=3 uid="uid://1g11f2baswo3"]
+
+[ext_resource type="Script" uid="uid://bbkbldmvt4g6a" path="res://scripts/pistol.gd" id="1_r3071"]
+[ext_resource type="PackedScene" uid="uid://c2v21m0ovy3ml" path="res://assets/models/weapons/psx_style_handgun.glb" id="2_60a84"]
+
+[node name="Weapon" type="Node3D" unique_id=545408802]
+transform = Transform3D(0.9968784, -0.07895224, 0, 0.07895224, 0.9968784, 0, 0, 0, 1, -0.37686437, 0, 0)
+script = ExtResource("1_r3071")
+
+[node name="Glock" parent="." unique_id=262965657 instance=ExtResource("2_60a84")]
+transform = Transform3D(-0.14562981, 0.026060594, -0.02475508, 0.021519238, 0.14596044, 0.027064152, 0.028790487, 0.022724243, -0.14544666, 0.6584222, -0.7427735, -1.036886)

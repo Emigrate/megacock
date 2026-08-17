@@ -10,56 +10,56 @@ const BUS_MOB_DEATHS = "MobDeaths"
 
 # --- ЗВУКОВЫЕ РЕСУРСЫ ---
 const SHOT_SOUNDS := [
-	"res://assets/audio/glock_shot1.wav",
-	"res://assets/audio/glock_shot2.wav",
-	"res://assets/audio/glock_shot3.wav",
+	"res://assets/audio/weapons/glock_shot1.wav",
+	"res://assets/audio/weapons/glock_shot2.wav",
+	"res://assets/audio/weapons/glock_shot3.wav",
 ]
 const AK_SHOT_SOUNDS := [
-	"res://assets/audio/ak-47_shot1.wav",
-	"res://assets/audio/ak-47_shot2.wav",
-	"res://assets/audio/ak-47_shot3.wav",
+	"res://assets/audio/weapons/ak-47_shot1.wav",
+	"res://assets/audio/weapons/ak-47_shot2.wav",
+	"res://assets/audio/weapons/ak-47_shot3.wav",
 ]
 const STEP_SOUNDS := [
-	"res://assets/audio/footstep_1.wav",
-	"res://assets/audio/footstep_2.wav",
-	"res://assets/audio/footstep_3.wav",
-	"res://assets/audio/footstep_4.wav",
+	"res://assets/audio/player/footstep_1.wav",
+	"res://assets/audio/player/footstep_2.wav",
+	"res://assets/audio/player/footstep_3.wav",
+	"res://assets/audio/player/footstep_4.wav",
 ]
-const DASH_SOUND := "res://assets/audio/dash.wav"
-const AXE_SWING_SOUND := "res://assets/audio/axe_swing1.wav"
-const SHOTGUN_SHOT_SOUND := "res://assets/audio/shotgun_shot1.wav"
+const DASH_SOUND := "res://assets/audio/player/dash.wav"
+const AXE_SWING_SOUND := "res://assets/audio/weapons/axe_swing1.wav"
+const SHOTGUN_SHOT_SOUND := "res://assets/audio/weapons/shotgun_shot1.wav"
 
 # --- ЗВУКИ ГУЛЯ ---
-const GHOUL_SPAWN_SOUND := "res://assets/audio/ghoul_spawn.ogg"
-const GHOUL_HIT_SOUND := "res://assets/audio/ghoul_hit.ogg"
-const GHOUL_DEATH_SOUND := "res://assets/audio/ghoul_death.ogg"
-const GHOUL_SWING_SOUND := "res://assets/audio/ghoul_swing.ogg"
+const GHOUL_SPAWN_SOUND := "res://assets/audio/ghoul/ghoul_spawn.ogg"
+const GHOUL_HIT_SOUND := "res://assets/audio/ghoul/ghoul_hit.ogg"
+const GHOUL_DEATH_SOUND := "res://assets/audio/ghoul/ghoul_death.ogg"
+const GHOUL_SWING_SOUND := "res://assets/audio/ghoul/ghoul_swing.ogg"
 
 # --- ЗВУКИ ДЕМОНА ---
-const WRATHDEMON_SPAWN_SOUND := "res://assets/audio/wrathdemon_spawn.ogg"
-const WRATHDEMON_HIT_SOUND := "res://assets/audio/wrathdemon_hit.ogg"
-const WRATHDEMON_DIE_SOUND := "res://assets/audio/wrathdemon_die.ogg"
-const WRATHDEMON_ATTACK_SOUND := "res://assets/audio/wrathdemon_attack.ogg"
+const WRATHDEMON_SPAWN_SOUND := "res://assets/audio/wrathdemon/wrathdemon_spawn.ogg"
+const WRATHDEMON_HIT_SOUND := "res://assets/audio/wrathdemon/wrathdemon_hit.ogg"
+const WRATHDEMON_DIE_SOUND := "res://assets/audio/wrathdemon/wrathdemon_die.ogg"
+const WRATHDEMON_ATTACK_SOUND := "res://assets/audio/wrathdemon/wrathdemon_attack.ogg"
 
 # --- ЗВУКИ СКЕЛЕТА ---
-const SCELETON_HIT_SOUND := "res://assets/audio/sceleton_hit.wav"
-const SCELETON_DEATH_SOUND := "res://assets/audio/sceleton_death.ogg"
+const SCELETON_HIT_SOUND := "res://assets/audio/skeleton/sceleton_hit.wav"
+const SCELETON_DEATH_SOUND := "res://assets/audio/skeleton/sceleton_death.ogg"
 const SCELETON_ATTACK_SOUNDS := [
-	"res://assets/audio/sceleton_attack1.ogg",
-	"res://assets/audio/sceleton_attack2.ogg",
+	"res://assets/audio/skeleton/sceleton_attack1.ogg",
+	"res://assets/audio/skeleton/sceleton_attack2.ogg",
 ]
 
 # --- ЗВУКИ ФАЕРБОЛА ---
-const FIREBALL_FLY_SOUND := "res://assets/audio/wrathdemon_projectile_fly.ogg"
-const FIREBALL_EXPLOSION_SOUND := "res://assets/audio/wrathdemon_projectile_explosion.mp3"
+const FIREBALL_FLY_SOUND := "res://assets/audio/wrathdemon/wrathdemon_projectile_fly.ogg"
+const FIREBALL_EXPLOSION_SOUND := "res://assets/audio/wrathdemon/wrathdemon_projectile_explosion.mp3"
 
 # --- ЗВУКИ ИГРОКА ---
 const PLAYER_HURT_SOUNDS := [
-	"res://assets/audio/player_hit1.ogg",
-	"res://assets/audio/player_hit2.ogg",
-	"res://assets/audio/player_hit3.ogg",
+	"res://assets/audio/player/player_hit1.ogg",
+	"res://assets/audio/player/player_hit2.ogg",
+	"res://assets/audio/player/player_hit3.ogg",
 ]
-const PLAYER_DEATH_SOUND := "res://assets/audio/player_death.ogg"
+const PLAYER_DEATH_SOUND := "res://assets/audio/player/player_death.ogg"
 
 # --- РЕГУЛИРОВКА ГРОМКОСТИ ---
 @export var master_volume_db: float = 10

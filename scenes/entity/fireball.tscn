@@ -1,0 +1,62 @@
+[gd_scene format=3 uid="uid://c80fbivsx4axc"]
+
+[ext_resource type="Script" uid="uid://cvl7skpk8fq0w" path="res://scripts/fireball.gd" id="1_3s14c"]
+[ext_resource type="Texture2D" uid="uid://5ruowkd2o3sw" path="res://assets/textures/wrathdemon/wrathdemon_projectile_explosion1.png" id="2_wyo3q"]
+[ext_resource type="Texture2D" uid="uid://cimexbyi5ys4n" path="res://assets/textures/wrathdemon/wrathdemon_projectile_explosion4.png" id="5_pq144"]
+[ext_resource type="Texture2D" uid="uid://cfv05wfwuxyoe" path="res://assets/textures/wrathdemon/wrathdemon_projectile_explosion5.png" id="6_0rtms"]
+[ext_resource type="Texture2D" uid="uid://cgcy6qey1i0bt" path="res://assets/textures/wrathdemon/wrathdemon_projectile_explosion6.png" id="7_nxa2u"]
+[ext_resource type="Texture2D" uid="uid://bobnjx27qth4q" path="res://assets/textures/wrathdemon/wrathdemon_projectile_explosion7.png" id="8_7iiyt"]
+[ext_resource type="Texture2D" uid="uid://doefbvj4lwl3x" path="res://assets/textures/wrathdemon/wrathdemon_projectile1.png" id="9_y511n"]
+[ext_resource type="Texture2D" uid="uid://qexc3o8e6f1q" path="res://assets/textures/wrathdemon/wrathdemon_projectile2.png" id="10_e52x5"]
+
+[sub_resource type="SphereShape3D" id="SphereShape3D_lxk3t"]
+radius = 1.0018487
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_lxk3t"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("2_wyo3q")
+}, {
+"duration": 1.0,
+"texture": ExtResource("5_pq144")
+}, {
+"duration": 1.0,
+"texture": ExtResource("6_0rtms")
+}, {
+"duration": 1.0,
+"texture": ExtResource("7_nxa2u")
+}, {
+"duration": 1.0,
+"texture": ExtResource("8_7iiyt")
+}],
+"loop": 1,
+"name": &"explosion",
+"speed": 13.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("9_y511n")
+}, {
+"duration": 1.0,
+"texture": ExtResource("10_e52x5")
+}],
+"loop": 1,
+"name": &"fly",
+"speed": 7.0
+}]
+
+[node name="CharacterBody3D" type="CharacterBody3D" unique_id=1268241866]
+collision_layer = 2
+script = ExtResource("1_3s14c")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="." unique_id=207274378]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.00991942, 0, 0)
+shape = SubResource("SphereShape3D_lxk3t")
+
+[node name="AnimatedSprite3D" type="AnimatedSprite3D" parent="." unique_id=495779585]
+pixel_size = 0.1601
+billboard = 1
+sprite_frames = SubResource("SpriteFrames_lxk3t")
+animation = &"fly"
+frame_progress = 0.94462484

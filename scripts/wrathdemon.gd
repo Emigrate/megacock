@@ -15,7 +15,7 @@ extends CharacterBody3D
 @export var fly_height_max := 25.0
 
 # --- Ссылка на фаербол ---
-const FIREBALL_SCENE := preload("res://scenes/fireball.tscn")
+const FIREBALL_SCENE := preload("res://scenes/entity/fireball.tscn")
 
 # --- ДОБАВЛЕНО: НАСТРОЙКИ ДРОПА ЭКСПЫ ---
 @export var exp_drop_min: int = 25
@@ -209,7 +209,7 @@ func _die() -> void:
 # --- ДОБАВЛЕНО: ФУНКЦИЯ ДРОПА ЭКСПЫ ---
 func _drop_exp() -> void:
 	if exp_orb_scene == null:
-		var default_path = "res://scenes/exp_orb.tscn"
+		var default_path = "res://scenes/entity/exp_orb.tscn"
 		if ResourceLoader.exists(default_path):
 			exp_orb_scene = load(default_path)
 		else:
