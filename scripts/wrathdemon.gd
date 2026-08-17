@@ -157,7 +157,20 @@ func _fire_fireball() -> void:
 func take_damage(amount: float) -> void:
 	if not _alive:
 		return
+	
+	# ===== ВИЗУАЛЬНЫЙ ХИТМАРКЕР =====
+	var crosshairs = get_tree().get_nodes_in_group("crosshair")
+	if crosshairs.size() > 0:
+		crosshairs[0].show_hitmarker()
+	else:
+		print("⚠️ Crosshair не найден в группе 'crosshair'")
+	# ===================================
+	
+	# --- ЗВУКОВОЙ ХИТМАРКЕР ---
+	AudioManager.play_hitmarker()
+	
 	hp -= int(amount)
+	
 	# --- 3D-ЗВУК ПОЛУЧЕНИЯ УРОНА ---
 	AudioManager.play_wrathdemon_hit_3d(global_position)
 

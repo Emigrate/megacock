@@ -1,8 +1,10 @@
 [gd_scene format=3 uid="uid://c6xveif43b3gj"]
 
 [ext_resource type="Script" uid="uid://bu4wtu6f5vqeg" path="res://scripts/player.gd" id="1_tbgi4"]
+[ext_resource type="Script" uid="uid://dchdrvikubmwr" path="res://scripts/crosshair.gd" id="4_jyhfs"]
 [ext_resource type="Texture2D" uid="uid://c0walbablexdi" path="res://assets/textures/dirt_2.png" id="4_tipki"]
 [ext_resource type="Texture2D" uid="uid://cx1u4u3j1wvcj" path="res://assets/textures/Stone wall 1.png" id="5_85g3d"]
+[ext_resource type="Texture2D" uid="uid://kb1n4ikibq8w" path="res://assets/textures/hitmarker.png" id="5_tbgi4"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_fqhjb"]
 
@@ -157,3 +159,20 @@ light_color = Color(0.7994482, 0.77615356, 0.790643, 1)
 light_energy = 0.5
 light_indirect_energy = 0.0
 light_volumetric_fog_energy = 0.0
+
+[node name="HUD" type="CanvasLayer" parent="." unique_id=879078374]
+
+[node name="Crosshair" type="Control" parent="HUD" unique_id=1115489047]
+layout_mode = 3
+anchors_preset = 0
+offset_left = 942.0
+offset_top = 494.0
+offset_right = 982.0
+offset_bottom = 534.0
+script = ExtResource("4_jyhfs")
+hitmarker_offset = Vector2(-0.54, 0)
+
+[node name="Sprite2D" type="Sprite2D" parent="HUD/Crosshair" unique_id=1966131615]
+visible = false
+scale = Vector2(0.17500003, 0.18750009)
+texture = ExtResource("5_tbgi4")

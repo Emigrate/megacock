@@ -61,6 +61,10 @@ const PLAYER_HURT_SOUNDS := [
 ]
 const PLAYER_DEATH_SOUND := "res://assets/audio/player/player_death.ogg"
 
+# ===== НОВЫЙ ХИТМАРКЕР =====
+const HITMARKER_SOUND := "res://assets/audio/hitmarker.ogg"
+# ===========================
+
 # --- РЕГУЛИРОВКА ГРОМКОСТИ ---
 @export var master_volume_db: float = 10
 @export var master_3d_volume_db: float = -10.0
@@ -100,6 +104,7 @@ const PLAYER_DEATH_SOUND := "res://assets/audio/player/player_death.ogg"
 # --- ГРОМКОСТЬ ЗВУКОВ ИГРОКА (шина Master) ---
 @export var player_hurt_volume_db: float = -5.0
 @export var player_death_volume_db: float = -5.0
+@export var hitmarker_volume_db: float = -23.0   # <-- НОВАЯ КРУТИЛКА
 
 # --- ПАРАМЕТРЫ 3D-ЗВУКОВ ---
 @export var max_distance_3d := 100.0
@@ -191,6 +196,13 @@ func play_shotgun_shot_2d() -> void:
 
 func play_axe_swing_2d() -> void:
 	play_single(AXE_SWING_SOUND, axe_swing_volume_db, BUS_SHOTS)
+
+
+# ============================================================
+# ХИТМАРКЕР (2D, шина Master)
+# ============================================================
+func play_hitmarker() -> void:
+	play_single(HITMARKER_SOUND, hitmarker_volume_db, BUS_MASTER)
 
 
 # ============================================================

@@ -119,6 +119,18 @@ func _physics_process(delta: float) -> void:
 func take_damage(amount: float) -> void:
 	if not _alive:
 		return
+	
+	# ===== ВИЗУАЛЬНЫЙ ХИТМАРКЕР =====
+	var crosshairs = get_tree().get_nodes_in_group("crosshair")
+	if crosshairs.size() > 0:
+		crosshairs[0].show_hitmarker()
+	else:
+		print("⚠️ Crosshair не найден в группе 'crosshair'")
+	# ===================================
+	
+	# --- ЗВУКОВОЙ ХИТМАРКЕР ---
+	AudioManager.play_hitmarker()
+	
 	hp -= int(amount)
 	
 	if hp <= 0:
@@ -151,7 +163,7 @@ func _die() -> void:
 		queue_free()
 
 
-# --- ФУНКЦИЯ ДРОПА ЭКСПЫ (ИСПРАВЛЕН ПОРЯДОК) ---
+# --- ФУНКЦИЯ ДРОПА ЭКСПЫ ---
 func _drop_exp() -> void:
 	if exp_orb_scene == null:
 		var default_path = "res://scenes/entity/exp_orb.tscn"
@@ -164,7 +176,6 @@ func _drop_exp() -> void:
 	var orb = exp_orb_scene.instantiate()
 	orb.exp_amount = randi_range(exp_drop_min, exp_drop_max)
 	
-	# ИСПРАВЛЕНИЕ: используем position (локальную), а не global_position
 	orb.position = global_position + Vector3(0, 0.3, 0)
 	
 	get_tree().current_scene.add_child(orb)
