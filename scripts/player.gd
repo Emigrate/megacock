@@ -72,6 +72,11 @@ var _fov_value_label: Label
 var _recoil_z := 0.0
 var _fov_shake := 0.0
 
+# ===== АПГРЕЙДЫ =====
+var chain_count: int = 0   # Количество отскоков пули (апгрейд "Цепь")
+# Здесь позже можно добавить другие переменные: damage_multiplier, magnet_radius, etc.
+# ====================
+
 
 func _ready() -> void:
 	process_mode = PROCESS_MODE_ALWAYS
@@ -92,8 +97,8 @@ func _ready() -> void:
 	camera.fov = _base_fov
 
 	# --- ЗАГРУЗКА ОРУЖИЯ (4 слота) ---
-	
-	# 1. Пистолет (теперь из сцены)
+
+	# 1. Пистолет
 	var pistol = null
 	var pistol_scene = load("res://scenes/weapons/pistol.tscn")
 	if pistol_scene != null:
@@ -474,10 +479,12 @@ func _handle_steps(delta: float, moving: bool) -> void:
 
 func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
+		if get_tree().paused and not _pause_visible:
+			return  # игра на паузе из-за другого UI (например, апгрейда) — своё меню не трогаем
 		_toggle_pause()
 		return
 
-	if _pause_visible:
+	if get_tree().paused:
 		return
 
 	if event is InputEventMouseMotion and Input.get_mouse_mode() == Input.MOUSE_MODE_CAPTURED:
@@ -578,7 +585,7 @@ func can_stand_up() -> bool:
 
 func take_damage(amount: float) -> void:
 	hp -= int(amount)
-	
+
 	# --- ЗВУКИ ИГРОКА ---
 	if hp <= 0:
 		AudioManager.play_player_death_3d(global_position)
@@ -601,4 +608,4 @@ func spawn_enemy_random() -> void:
 	var angle := randf_range(0.0, TAU)
 	var dist := randf_range(5.0, 15.0)
 	var pos := global_position + Vector3(cos(angle) * dist, 2.0, sin(angle) * dist)
-	SwarmManager.spawn(pos)
+	SwarmManager.spawn(pos)	

@@ -125,7 +125,7 @@ func try_fire() -> bool:
 	timer.timeout.connect(_on_fire_cooldown)
 
 	var cam := get_parent() as Camera3D
-	var space := cam.get_world_3d().direct_space_state
+	var space_state := cam.get_world_3d().direct_space_state
 
 	var origin := cam.global_position
 	var dir := -cam.global_transform.basis.z
@@ -133,6 +133,9 @@ func try_fire() -> bool:
 	var spread_rad := deg_to_rad(spread_degrees)
 
 	var tracer_start := cam.global_position + cam.global_transform.basis * tracer_offset
+
+	var first_hit_pos := Vector3.ZERO
+	var first_hit_occurred := false
 
 	for i in range(pellet_count):
 		var angle_h = _generate_normal_angle(spread_rad, spread_falloff)
@@ -143,13 +146,16 @@ func try_fire() -> bool:
 		spread_dir = spread_dir.rotated(cam.global_transform.basis.x, angle_v)
 
 		var to := origin + spread_dir * shoot_range
-		var hit = space.intersect_ray(PhysicsRayQueryParameters3D.create(origin, to))
+		var hit = space_state.intersect_ray(PhysicsRayQueryParameters3D.create(origin, to))
 		if hit:
 			var target: Vector3 = hit.position
 			var c: Object = hit.collider
 			if c != null and c.has_method("take_damage"):
 				c.take_damage(pellet_damage)
 			spawn_tracer(tracer_start, target)
+			if not first_hit_occurred:
+				first_hit_pos = target
+				first_hit_occurred = true
 		else:
 			spawn_tracer(tracer_start, to)
 
@@ -163,9 +169,69 @@ func try_fire() -> bool:
 	if player and player.has_method("add_camera_shake"):
 		player.add_camera_shake(camera_shake_intensity)
 
-	# --- ЗВУК ВЫСТРЕЛА (2D, на шину Shots) ---
 	AudioManager.play_shotgun_shot_2d()
+
+	# --- ЦЕПНАЯ РЕАКЦИЯ для дробовика ---
+	if player and player.chain_count > 0 and first_hit_occurred:
+		var chain_dir := (first_hit_pos - cam.global_position).normalized()
+		_fire_chain(first_hit_pos, chain_dir, player.chain_count, player, space_state, pellet_damage)
+
 	return true
+
+
+func _fire_chain(start_pos: Vector3, start_dir: Vector3, max_chains: int, player: Node, space_state: PhysicsDirectSpaceState3D, chain_damage: float) -> void:
+	var cam := get_parent() as Camera3D
+
+	var current_pos: Vector3 = start_pos
+	var current_dir: Vector3 = start_dir
+	var current_target: Vector3 = current_pos + current_dir * shoot_range
+
+	var tracer_from: Vector3 = cam.global_position + cam.global_transform.basis * tracer_offset
+
+	var hits: int = max(1, max_chains + 1)
+	var already_hit: Array = []
+
+	for i in range(hits):
+		var query := PhysicsRayQueryParameters3D.create(current_pos, current_target)
+		if player:
+			query.exclude = [player.get_rid()]
+		var hit: Dictionary = space_state.intersect_ray(query)
+
+		if not hit.is_empty():
+			var c: Object = hit.collider
+			var hit_position: Vector3 = hit.position
+
+			spawn_tracer(tracer_from, hit_position)
+
+			if c != null and c.has_method("take_damage"):
+				c.take_damage(chain_damage)
+				already_hit.append(c)
+
+			if i == hits - 1:
+				break
+
+			var enemies := get_tree().get_nodes_in_group("mob")
+			var closest_dist := INF
+			var closest_enemy: Node3D = null
+
+			for enemy in enemies:
+				if not is_instance_valid(enemy) or enemy in already_hit:
+					continue
+				var d := hit_position.distance_to(enemy.global_position)
+				if d < closest_dist:
+					closest_dist = d
+					closest_enemy = enemy
+
+			if closest_enemy:
+				current_dir = (closest_enemy.global_position - hit_position).normalized()
+				current_pos = hit_position + current_dir * 0.3
+				current_target = current_pos + current_dir * shoot_range
+				tracer_from = hit_position
+			else:
+				break
+		else:
+			spawn_tracer(tracer_from, current_target)
+			break
 
 
 func _on_fire_cooldown() -> void:

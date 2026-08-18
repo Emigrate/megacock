@@ -20,6 +20,8 @@ var _can_attack := true
 
 
 func _ready() -> void:
+	add_to_group("mob")
+
 	_find_target()
 	
 	for child in get_children():

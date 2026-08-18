@@ -101,7 +101,7 @@ func try_fire() -> bool:
 		can_fire = true)
 
 	var cam := get_parent() as Camera3D
-	var space := cam.get_world_3d().direct_space_state
+	var space_state := cam.get_world_3d().direct_space_state
 
 	var origin := cam.global_position
 	var dir := -cam.global_transform.basis.z
@@ -113,36 +113,24 @@ func try_fire() -> bool:
 		dir = dir.rotated(cam.global_transform.basis.x, randf_range(-spread, spread))
 	_time_since_shot = 0.0
 
-	var to := origin + dir * shoot_range
+	# --- ПОЛУЧАЕМ ИГРОКА И ЕГО УРОВЕНЬ ЦЕПИ ---
+	var player = get_tree().get_first_node_in_group("player")
+	var chains = player.chain_count if player else 0
 
-	var target := to
-	var hit = space.intersect_ray(PhysicsRayQueryParameters3D.create(origin, to))
-	if hit:
-		target = hit.position
-		var c: Object = hit.collider
-		if c != null and c.has_method("take_damage"):
-			c.take_damage(damage)
-	else:
-		var hit_pos: Vector3 = SwarmManager.get_hit_position(origin, dir, shoot_range)
-		if hit_pos != Vector3.ZERO:
-			target = hit_pos
-			SwarmManager.damage_ray(origin, dir, shoot_range, int(damage))
+	# --- ЗАПУСКАЕМ ЦЕПНОЙ ВЫСТРЕЛ ---
+	_fire_chain(origin, dir, chains, player, space_state)
 
+	# --- МАЗЛ (для первого выстрела) ---
 	var muzzle_pos := cam.global_position + cam.global_transform.basis * muzzle_offset
 	spawn_flash(muzzle_pos)
 
-	var tracer_pos := cam.global_position + cam.global_transform.basis * tracer_offset
-	spawn_tracer(tracer_pos, target)
-
 	# --- ОТДАЧА И FOV-ШЕЙК ---
-	var player = get_tree().get_first_node_in_group("player")
-	if player and player.has_method("add_camera_shake"):
-		player.add_camera_shake(camera_shake_intensity)
-
 	var speed_factor := 0.0
 	if player is CharacterBody3D:
 		var horiz := Vector2(player.velocity.x, player.velocity.z)
 		speed_factor = clampf(horiz.length() / 20.0, 0.0, 1.0)
+	if player and player.has_method("add_camera_shake"):
+		player.add_camera_shake(camera_shake_intensity)
 
 	_recoil_back = recoil_amount * 3.5 * (1.0 + speed_factor * 0.8)
 	_recoil_pitch = recoil_amount * 1.5 * (1.0 + speed_factor * 0.5)
@@ -152,9 +140,63 @@ func try_fire() -> bool:
 	else:
 		spread_degrees = 1.5
 
-	# --- ЗВУК ВЫСТРЕЛА (2D, на шину Shots) ---
 	AudioManager.play_ak_shot_2d()
 	return true
+
+
+func _fire_chain(origin: Vector3, dir: Vector3, max_chains: int, player: Node, space_state: PhysicsDirectSpaceState3D) -> void:
+	var cam := get_parent() as Camera3D
+
+	var current_pos: Vector3 = origin
+	var current_dir: Vector3 = dir
+	var current_target: Vector3 = current_pos + current_dir * shoot_range
+
+	var tracer_from: Vector3 = cam.global_position + cam.global_transform.basis * tracer_offset
+
+	var hits: int = max(1, max_chains + 1)
+	var already_hit: Array = []
+
+	for i in range(hits):
+		var query := PhysicsRayQueryParameters3D.create(current_pos, current_target)
+		if player:
+			query.exclude = [player.get_rid()]
+		var hit: Dictionary = space_state.intersect_ray(query)
+
+		if not hit.is_empty():
+			var c: Object = hit.collider
+			var hit_position: Vector3 = hit.position
+
+			spawn_tracer(tracer_from, hit_position)
+
+			if c != null and c.has_method("take_damage"):
+				c.take_damage(damage)
+				already_hit.append(c)
+
+			if i == hits - 1:
+				break
+
+			var enemies := get_tree().get_nodes_in_group("mob")
+			var closest_dist := INF
+			var closest_enemy: Node3D = null
+
+			for enemy in enemies:
+				if not is_instance_valid(enemy) or enemy in already_hit:
+					continue
+				var d := hit_position.distance_to(enemy.global_position)
+				if d < closest_dist:
+					closest_dist = d
+					closest_enemy = enemy
+
+			if closest_enemy:
+				current_dir = (closest_enemy.global_position - hit_position).normalized()
+				current_pos = hit_position + current_dir * 0.3
+				current_target = current_pos + current_dir * shoot_range
+				tracer_from = hit_position
+			else:
+				break
+		else:
+			spawn_tracer(tracer_from, current_target)
+			break
 
 
 func spawn_flash(pos: Vector3) -> void:

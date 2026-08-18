@@ -9,7 +9,6 @@ var level: int = 1
 const EXP_MULTIPLIER = 2.0
 
 func _ready():
-	print("✅ ExpManager загрузился! Начинаю с ", current_exp, " / ", exp_to_next_level)
 	exp_changed.emit(current_exp, exp_to_next_level)
 
 func add_exp(amount: int) -> void:
@@ -25,5 +24,9 @@ func add_exp(amount: int) -> void:
 		exp_to_next_level = int(exp_to_next_level * EXP_MULTIPLIER)
 		print("🔥 УРОВЕНЬ ПОВЫШЕН! Текущий уровень: ", level)
 		level_up.emit(level)
+		
+		# === ВЫЗОВ МЕНЕДЖЕРА АПГРЕЙДОВ ===
+		UpgradeManager.offer_upgrades()
+		# =====================================
 	
 	exp_changed.emit(current_exp, exp_to_next_level)

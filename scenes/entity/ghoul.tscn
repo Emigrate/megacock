@@ -89,7 +89,7 @@ animations = [{
 "speed": 6.0
 }]
 
-[node name="Ghoul" type="Node3D" unique_id=859663965]
+[node name="Ghoul" type="Node3D" unique_id=859663965 groups=["mob"]]
 transform = Transform3D(1.315, 0, 0, 0, 1.315, 0, 0, 0, 1.315, 0, 0, 0)
 
 [node name="CharacterBody3D" type="CharacterBody3D" parent="." unique_id=916880933]

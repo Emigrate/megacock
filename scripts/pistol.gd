@@ -20,7 +20,7 @@ const FLASH_SCRIPT := preload("res://scripts/muzzle_flash.gd")
 # --- НАСТРОЙКА ТРЕЙСЕРА ---
 @export var tracer_offset := Vector3(0.40, -0.55, -2.3)
 
-# --- ИНТЕНСИВНОСТЬ ОТДАЧИ И FOV-ШЕЙКА ---
+# --- ИНТЕНСИВНОСТЬ ОТДАЧИ И FOV-ШЕЙК ---
 @export var camera_shake_intensity := 0.1
 
 var can_fire := true
@@ -73,7 +73,7 @@ func set_yaw_input(yaw: float) -> void:
 func _process(delta: float) -> void:
 	_time_since_shot += delta
 
-	var damp := 1.0 - exp(-9.0 * delta)
+	var damp: float = 1.0 - exp(-9.0 * delta)
 	_recoil_back = lerpf(_recoil_back, 0.0, damp)
 	_recoil_pitch = lerpf(_recoil_pitch, 0.0, damp)
 
@@ -105,49 +105,38 @@ func try_fire() -> bool:
 	get_tree().create_timer(1.0 / fire_rate).timeout.connect(func():
 		can_fire = true)
 
-	var cam := get_parent() as Camera3D
-	var space := cam.get_world_3d().direct_space_state
+	var cam: Camera3D = get_parent() as Camera3D
+	var origin: Vector3 = cam.global_position
+	var dir: Vector3 = -cam.global_transform.basis.z
 
-	var origin := cam.global_position
-	var dir := -cam.global_transform.basis.z
-
-	var is_first_shot := _time_since_shot >= first_shot_reset_time
+	var is_first_shot: bool = _time_since_shot >= first_shot_reset_time
 	if not is_first_shot:
-		var spread := deg_to_rad(spread_degrees)
+		var spread: float = deg_to_rad(spread_degrees)
 		dir = dir.rotated(cam.global_transform.basis.y, randf_range(-spread, spread))
 		dir = dir.rotated(cam.global_transform.basis.x, randf_range(-spread, spread))
 	_time_since_shot = 0.0
 
-	var to := origin + dir * shoot_range
+	# --- ПОЛУЧАЕМ ИГРОКА И ЕГО УРОВЕНЬ ЦЕПИ ---
+	var player: Node = get_tree().get_first_node_in_group("player")
+	var chains: int = 0
+	if player:
+		chains = player.chain_count
+	print("🔫 Стреляем. chains = ", chains, " | player = ", player)
 
-	var hit_pos: Vector3 = SwarmManager.get_hit_position(origin, dir, shoot_range)
-	var target := to
-	if hit_pos != Vector3.ZERO:
-		target = hit_pos
-		SwarmManager.damage_ray(origin, dir, shoot_range, int(damage))
-	else:
-		var hit := space.intersect_ray(PhysicsRayQueryParameters3D.create(origin, to))
-		if hit:
-			target = hit.position
-			var c: Object = hit.collider
-			if c != null and c.has_method("take_damage"):
-				c.take_damage(damage)
+	# --- ЗАПУСКАЕМ ЦЕПНОЙ ВЫСТРЕЛ ---
+	_fire_chain(origin, dir, chains, player)
 
-	var muzzle_pos := cam.global_position + cam.global_transform.basis * muzzle_offset
+	# --- МАЗЛ (для первого выстрела) ---
+	var muzzle_pos: Vector3 = cam.global_position + cam.global_transform.basis * muzzle_offset
 	spawn_flash(muzzle_pos)
 
-	var tracer_pos := cam.global_position + cam.global_transform.basis * tracer_offset
-	spawn_tracer(tracer_pos, target)
-
 	# --- ОТДАЧА И FOV-ШЕЙК ---
-	var player = get_tree().get_first_node_in_group("player")
+	var speed_factor: float = 0.0
+	if player is CharacterBody3D:
+		var horiz: Vector2 = Vector2(player.velocity.x, player.velocity.z)
+		speed_factor = clampf(horiz.length() / 20.0, 0.0, 1.0)
 	if player and player.has_method("add_camera_shake"):
 		player.add_camera_shake(camera_shake_intensity)
-
-	var speed_factor := 0.0
-	if player is CharacterBody3D:
-		var horiz := Vector2(player.velocity.x, player.velocity.z)
-		speed_factor = clampf(horiz.length() / 20.0, 0.0, 1.0)
 
 	_recoil_back = recoil_amount * 3.0 * (1.0 + speed_factor * 0.8)
 	_recoil_pitch = recoil_amount * 1.2 * (1.0 + speed_factor * 0.5)
@@ -157,16 +146,84 @@ func try_fire() -> bool:
 	else:
 		spread_degrees = 0.8
 
-	# --- ЗВУК ВЫСТРЕЛА (2D, на шину Shots) ---
 	AudioManager.play_shot_2d()
 	return true
+
+
+func _fire_chain(origin: Vector3, dir: Vector3, max_chains: int, player: Node) -> void:
+	var cam: Camera3D = get_parent() as Camera3D
+	var space: PhysicsDirectSpaceState3D = cam.get_world_3d().direct_space_state
+
+	var current_pos: Vector3 = origin
+	var current_dir: Vector3 = dir
+	var current_target: Vector3 = current_pos + current_dir * shoot_range
+
+	# Первый трейсер летит от дула
+	var tracer_from: Vector3 = cam.global_position + cam.global_transform.basis * tracer_offset
+
+	var hits: int = max(1, max_chains + 1)
+	print("⛓️ hits = ", hits, " (max_chains было ", max_chains, ")")
+	var already_hit: Array = []
+
+	for i in range(hits):
+		var query: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(current_pos, current_target)
+		if player:
+			query.exclude = [player.get_rid()]
+		var hit: Dictionary = space.intersect_ray(query)
+
+		if not hit.is_empty():
+			var c: Object = hit.collider
+			var hit_position: Vector3 = hit.position
+
+			print("🎯 Попал в: ", c, " | already_hit размер: ", already_hit.size())
+
+			# Рисуем трейсер: от предыдущей точки (дуло или пред. враг) до текущего попадания
+			spawn_tracer(tracer_from, hit_position)
+
+			if c != null and c.has_method("take_damage"):
+				c.take_damage(damage)
+				already_hit.append(c)
+
+			# Последний доступный отскок — цепь заканчивается
+			if i == hits - 1:
+				print("⛓️ Это последний доступный отскок, обрываем")
+				break
+
+			var enemies: Array = get_tree().get_nodes_in_group("mob")
+			print("👥 Врагов в группе mob: ", enemies.size())
+
+			var closest_dist: float = INF
+			var closest_enemy: Node3D = null
+
+			for enemy in enemies:
+				if not is_instance_valid(enemy) or enemy in already_hit:
+					continue
+				var d: float = hit_position.distance_to(enemy.global_position)
+				if d < closest_dist:
+					closest_dist = d
+					closest_enemy = enemy
+
+			if closest_enemy:
+				print("➡️ Скачем в: ", closest_enemy, " | дистанция: ", closest_dist)
+				current_dir = (closest_enemy.global_position - hit_position).normalized()
+				current_pos = hit_position + current_dir * 0.3
+				current_target = current_pos + current_dir * shoot_range
+				tracer_from = hit_position  # следующий трейсер стартует от точки попадания
+			else:
+				print("❌ Нет доступного следующего врага для отскока")
+				break
+		else:
+			print("🔵 Промах, цепь прервана на сегменте ", i)
+			# Промах — дорисовываем трейсер до максимальной дистанции и обрываем цепь
+			spawn_tracer(tracer_from, current_target)
+			break
 
 
 func spawn_flash(pos: Vector3) -> void:
 	var flash: Node3D = FLASH_SCRIPT.new()
 	flash.start_size = flash_start_size * flash_scale
 	flash.end_size = flash_end_size * flash_scale
-	var world := get_tree().current_scene
+	var world: Node = get_tree().current_scene
 	if world == null:
 		world = get_parent().get_parent().get_parent()
 	world.add_child(flash)
@@ -177,7 +234,7 @@ func spawn_tracer(from: Vector3, to: Vector3) -> void:
 	var tracer: Node3D = TRACER_SCRIPT.new()
 	tracer.set("from", from)
 	tracer.set("to", to)
-	var world := get_tree().current_scene
+	var world: Node = get_tree().current_scene
 	if world == null:
 		world = get_parent().get_parent().get_parent()
 	world.add_child(tracer)

@@ -1,0 +1,35 @@
+[gd_scene format=3 uid="uid://lhe4l0agovkx"]
+
+[ext_resource type="Script" uid="uid://daqirxrssi3gb" path="res://scripts/upgrade_ui.gd" id="1_3n3xa"]
+
+[node name="CanvasLayer" type="CanvasLayer" unique_id=148301676]
+script = ExtResource("1_3n3xa")
+
+[node name="ColorRect" type="ColorRect" parent="." unique_id=1824990529]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 0.6)
+
+[node name="CenterContainer" type="CenterContainer" parent="ColorRect" unique_id=676798978]
+layout_mode = 0
+offset_right = 40.0
+offset_bottom = 40.0
+
+[node name="VBoxContainer" type="VBoxContainer" parent="ColorRect/CenterContainer" unique_id=1971505070]
+layout_mode = 2
+theme_override_constants/separation = 15
+
+[node name="Button" type="Button" parent="ColorRect/CenterContainer/VBoxContainer" unique_id=219031429]
+layout_mode = 2
+
+[node name="Button2" type="Button" parent="ColorRect/CenterContainer/VBoxContainer" unique_id=1453626998]
+layout_mode = 2
+
+[node name="Button3" type="Button" parent="ColorRect/CenterContainer/VBoxContainer" unique_id=1937323909]
+layout_mode = 2
+
+[node name="Button4" type="Button" parent="ColorRect/CenterContainer/VBoxContainer" unique_id=952796711]
+layout_mode = 2

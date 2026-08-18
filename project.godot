@@ -23,8 +23,10 @@ buses/default_bus_layout="uid://unng3ccdo44r"
 ExpManager="*uid://b0e8lnccwmjyt"
 AudioManager="*uid://cynivwym1u0lu"
 SwarmManager="*uid://btjnjrt0wu5hj"
+UpgradeManager="*uid://ilagr0olyjd0"
 ExpUi="*uid://ji72grvl45k2"
 PlayerUi="*uid://ddm3kgg1nwp52"
+UpgradeHud="*uid://lhe4l0agovkx"
 
 [display]
 
@@ -42,6 +44,10 @@ enabled=PackedStringArray("res://addons/gdterm/plugin.cfg")
 [filesystem]
 
 import/blender/enabled=false
+
+[global_group]
+
+mob=""
 
 [gui]
 

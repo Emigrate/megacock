@@ -106,6 +106,10 @@ const HITMARKER_SOUND := "res://assets/audio/hitmarker.ogg"
 @export var player_death_volume_db: float = -5.0
 @export var hitmarker_volume_db: float = -23.0   # <-- НОВАЯ КРУТИЛКА
 
+# --- АНТИ-КЛИППИНГ ДЛЯ ХИТМАРКЕРА ---
+@export var hitmarker_min_interval_ms: int = 45  # минимальный интервал между проигрываниями
+var _last_hitmarker_time_ms: int = 0
+
 # --- ПАРАМЕТРЫ 3D-ЗВУКОВ ---
 @export var max_distance_3d := 100.0
 @export var unit_size_3d := 90.0
@@ -199,9 +203,13 @@ func play_axe_swing_2d() -> void:
 
 
 # ============================================================
-# ХИТМАРКЕР (2D, шина Master)
+# ХИТМАРКЕР (2D, шина Master) — с защитой от клиппинга при частых попаданиях
 # ============================================================
 func play_hitmarker() -> void:
+	var now := Time.get_ticks_msec()
+	if now - _last_hitmarker_time_ms < hitmarker_min_interval_ms:
+		return  # слишком часто — пропускаем, чтобы не было наложения/клиппинга
+	_last_hitmarker_time_ms = now
 	play_single(HITMARKER_SOUND, hitmarker_volume_db, BUS_MASTER)
 
 
