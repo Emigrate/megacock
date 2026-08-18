@@ -1,16 +1,16 @@
 extends CharacterBody3D
 
 # --- НАСТРОЙКИ ---
-@export var speed := 13.0
-@export var hp := 50
+@export var speed := 10
+@export var hp := 100
 @export var damage := 10.0
 @export var attack_cooldown := 0.8
 @export var detection_distance := 3.0
 @export var rotation_speed := 0.2
 
 # --- НАСТРОЙКИ ДРОПА ЭКСПЫ ---
-@export var exp_drop_min: int = 10
-@export var exp_drop_max: int = 10
+@export var exp_drop_min: int = 100
+@export var exp_drop_max: int = 100
 @export var exp_orb_scene: PackedScene
 
 var _target: Node3D

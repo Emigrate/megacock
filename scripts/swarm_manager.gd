@@ -9,12 +9,19 @@ const GROUND_Y := 0.5
 @export var min_spawn_distance := 30.0
 @export var max_spawn_distance := 100.0
 
+# --- НАСТРОЙКИ ДОПОЛНИТЕЛЬНОГО СПАВНА ---
+@export var extra_spawn_interval := 1.0  # каждые 1 секунду (было 10, но ты поставил 1)
+
 var _mobs: Array = []
 var _fireballs: Array = []          # список активных фаерболов
 var _player: Node3D
 var _nav_map: RID = RID()
 var _spawn_timer: Timer
 var _spawn_counter: int = 0
+
+# Переменные для дополнительного спавна
+var _time_elapsed: float = 0.0
+var _last_extra_spawn_time: float = 0.0
 
 
 func _ready() -> void:
@@ -26,6 +33,19 @@ func _ready() -> void:
 	_spawn_timer.timeout.connect(_on_spawn_tick)
 	add_child(_spawn_timer)
 	_spawn_timer.start()
+
+
+func _process(delta: float) -> void:
+	if _player == null:
+		_find_player()
+		return
+	_time_elapsed += delta
+	
+	# Дополнительный спавн каждые extra_spawn_interval секунд
+	if _time_elapsed - _last_extra_spawn_time >= extra_spawn_interval:
+		_last_extra_spawn_time = _time_elapsed
+		if _mobs.size() < MAX_MOBS:
+			_spawn_random_mob_extra()
 
 
 func _on_spawn_tick() -> void:
@@ -87,6 +107,17 @@ func _spawn_sceleton() -> void:
 	get_tree().current_scene.add_child(mob_root)
 	mob.global_position = pos
 	_mobs.append(mob)
+
+
+func _spawn_random_mob_extra() -> void:
+	# Спавн одного случайного моба (для дополнительного таймера)
+	var roll = randf()
+	if roll < 0.5:
+		_spawn_ghoul()
+	elif roll < 0.8:
+		_spawn_sceleton()
+	else:
+		_spawn_demon()
 
 
 func _get_spawn_position() -> Vector3:
@@ -154,6 +185,17 @@ func unregister_fireball(fb: Node3D) -> void:
 		_fireballs.erase(fb)
 
 
+# ===== НОВАЯ ФУНКЦИЯ ДЛЯ АВТО-ШОТА =====
+func get_nearby_fireballs(origin: Vector3, radius: float) -> Array[Node3D]:
+	var result: Array[Node3D] = []
+	for fb in _fireballs:
+		if is_instance_valid(fb) and not fb.is_exploded():
+			if fb.global_position.distance_to(origin) <= radius:
+				result.append(fb)
+	return result
+# ============================================================
+
+
 # --- ПРОВЕРКА ПОПАДАНИЯ В ФАЕРБОЛЫ ---
 func damage_fireball_ray(origin: Vector3, dir: Vector3, max_range: float, damage: float) -> bool:
 	var best_dist: float = max_range
@@ -177,7 +219,7 @@ func damage_fireball_ray(origin: Vector3, dir: Vector3, max_range: float, damage
 	return false
 
 
-# --- ОСТАЛЬНЫЕ МЕТОДЫ (без изменений) ---
+# --- ОСТАЛЬНЫЕ МЕТОДЫ ---
 func get_hit_position(origin: Vector3, dir: Vector3, max_range: float) -> Vector3:
 	var best_dist: float = max_range
 	var best_pos: Vector3 = Vector3.ZERO

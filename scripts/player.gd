@@ -73,9 +73,30 @@ var _recoil_z := 0.0
 var _fov_shake := 0.0
 
 # ===== АПГРЕЙДЫ =====
-var chain_count: int = 0   # Количество отскоков пули (апгрейд "Цепь")
-# Здесь позже можно добавить другие переменные: damage_multiplier, magnet_radius, etc.
+var chain_count: int = 0
+var auto_shots: int = 0
+var auto_shot_damage: int = 0
 # ====================
+
+# --- ТАЙМЕР АВТО-ВЫСТРЕЛА ---
+var _auto_shot_timer: float = 0.0
+@export var auto_shot_base_interval: float = 1.0
+@export var auto_shot_min_interval: float = 0.1
+var auto_shot_interval_current: float = 1.0
+
+# --- НАСТРОЙКИ АВТО-ВЫСТРЕЛА (вынесено из магических чисел) ---
+@export var auto_shot_search_radius: float = 30.0
+@export var auto_shot_front_dot_threshold: float = 0.3
+@export var auto_shot_bullet_speed: float = 100.0
+@export var auto_shot_range: float = 100.0
+@export var auto_shot_chain_offset: float = 0.3
+@export var auto_shot_burst_stagger: float = 0.1
+
+# защита от гонки: не запускать новую серию, пока предыдущая не долетела
+var _is_auto_shooting := false
+
+# --- ТРАССЕР ДЛЯ АВТО-ВЫСТРЕЛА ---
+const TRACER_SCRIPT := preload("res://scripts/tracer.gd")
 
 
 func _ready() -> void:
@@ -96,9 +117,9 @@ func _ready() -> void:
 	_base_fov = 90.0
 	camera.fov = _base_fov
 
-	# --- ЗАГРУЗКА ОРУЖИЯ (4 слота) ---
+	auto_shot_interval_current = auto_shot_base_interval
 
-	# 1. Пистолет
+	# --- ЗАГРУЗКА ОРУЖИЯ (4 слота) ---
 	var pistol = null
 	var pistol_scene = load("res://scenes/weapons/pistol.tscn")
 	if pistol_scene != null:
@@ -200,7 +221,6 @@ func _ready() -> void:
 	_create_pause_ui()
 	_collect_animation_players(get_tree().root)
 
-	# --- Устанавливаем текущую высоту ---
 	current_height = stand_height
 	target_height = stand_height
 
@@ -464,6 +484,13 @@ func _physics_process(delta: float) -> void:
 		AudioManager.play_land()
 	_was_in_air = not is_on_floor()
 
+	# --- АВТО-ВЫСТРЕЛ ---
+	if auto_shots > 0 and auto_shot_damage > 0:
+		_auto_shot_timer += delta
+		if _auto_shot_timer >= auto_shot_interval_current and not _is_auto_shooting:
+			_auto_shot_timer = 0.0
+			_perform_auto_shot()
+
 
 func _handle_steps(delta: float, moving: bool) -> void:
 	if not moving:
@@ -480,7 +507,7 @@ func _handle_steps(delta: float, moving: bool) -> void:
 func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
 		if get_tree().paused and not _pause_visible:
-			return  # игра на паузе из-за другого UI (например, апгрейда) — своё меню не трогаем
+			return
 		_toggle_pause()
 		return
 
@@ -586,7 +613,6 @@ func can_stand_up() -> bool:
 func take_damage(amount: float) -> void:
 	hp -= int(amount)
 
-	# --- ЗВУКИ ИГРОКА ---
 	if hp <= 0:
 		AudioManager.play_player_death_3d(global_position)
 		hp = max_hp
@@ -608,4 +634,185 @@ func spawn_enemy_random() -> void:
 	var angle := randf_range(0.0, TAU)
 	var dist := randf_range(5.0, 15.0)
 	var pos := global_position + Vector3(cos(angle) * dist, 2.0, sin(angle) * dist)
-	SwarmManager.spawn(pos)	
+	SwarmManager.spawn(pos)
+
+
+# ===== АВТО-ВЫСТРЕЛ =====
+
+# Единая точка поиска цели: сначала ближайший фаербол в радиусе,
+# иначе враг по камере (приоритет тем, что спереди), с возможностью
+# исключить уже "убитых"/невалидных кандидатов через exclude
+func _find_auto_shot_target(exclude: Array = []) -> Node3D:
+	var fireballs = SwarmManager.get_nearby_fireballs(global_position, auto_shot_search_radius)
+	var closest_fb: Node3D = null
+	var closest_fb_dist := INF
+	for fb in fireballs:
+		if fb in exclude or not is_instance_valid(fb):
+			continue
+		var d = global_position.distance_to(fb.global_position)
+		if d < closest_fb_dist:
+			closest_fb_dist = d
+			closest_fb = fb
+
+	if closest_fb:
+		return closest_fb
+
+	# фаерболов нет (или все исключены) — ищем врага по камере
+	var cam_dir = -camera.global_transform.basis.z
+	var cam_pos = camera.global_position
+
+	var alive_enemies: Array = []
+	for enemy in get_tree().get_nodes_in_group("mob"):
+		if not is_instance_valid(enemy) or enemy in exclude:
+			continue
+		if enemy.has_method("get_alive") and not enemy.get_alive():
+			continue
+		alive_enemies.append(enemy)
+
+	if alive_enemies.is_empty():
+		return null
+
+	var front_enemies: Array = []
+	var back_enemies: Array = []
+	for enemy in alive_enemies:
+		var dir_to_enemy = (enemy.global_position - cam_pos).normalized()
+		var dot = dir_to_enemy.dot(cam_dir)
+		if dot > auto_shot_front_dot_threshold:
+			front_enemies.append(enemy)
+		else:
+			back_enemies.append(enemy)
+
+	if not front_enemies.is_empty():
+		var best_angle := INF
+		var best: Node3D = null
+		for enemy in front_enemies:
+			var dir_to_enemy = (enemy.global_position - cam_pos).normalized()
+			var angle = dir_to_enemy.angle_to(cam_dir)
+			if angle < best_angle:
+				best_angle = angle
+				best = enemy
+		return best
+
+	return alive_enemies[randi() % alive_enemies.size()]
+
+
+func _perform_auto_shot():
+	if _is_auto_shooting:
+		return
+
+	var target := _find_auto_shot_target()
+	if target == null:
+		return
+
+	_is_auto_shooting = true
+
+	for i in range(auto_shots):
+		if i > 0:
+			await get_tree().create_timer(auto_shot_burst_stagger * i).timeout
+
+		if not is_instance_valid(target) or (target.has_method("get_alive") and not target.get_alive()):
+			target = _find_auto_shot_target()
+			if target == null:
+				break
+
+		_fire_auto_bullet(target.global_position, target)
+
+	_is_auto_shooting = false
+
+
+func _fire_auto_bullet(target_pos: Vector3, target: Node3D = null):
+	var origin = global_position
+
+	# Упреждение: предсказываем позицию цели через время полёта
+	var predicted_pos = target_pos
+	if target:
+		var target_velocity = Vector3.ZERO
+		if target.has_method("get_velocity"):
+			target_velocity = target.velocity
+		elif "velocity" in target:
+			target_velocity = target.velocity
+		var dist = origin.distance_to(target_pos)
+		var time_to_target = dist / auto_shot_bullet_speed
+		predicted_pos = target_pos + target_velocity * time_to_target
+
+	var dir = (predicted_pos - origin).normalized()
+
+	var space_state = get_world_3d().direct_space_state
+	var current_pos = origin
+	var current_dir = dir
+	var current_target = current_pos + current_dir * auto_shot_range
+
+	var max_chains = chain_count
+	var chance = 0.5 + 0.1 * (max_chains - 1) if max_chains > 0 else 0.0
+	var hits = max(1, max_chains + 1)
+
+	var already_hit: Array = []
+
+	for i in range(hits):
+		var query = PhysicsRayQueryParameters3D.create(current_pos, current_target)
+		query.exclude = [self.get_rid()]
+		var hit = space_state.intersect_ray(query)
+
+		if not hit.is_empty():
+			var c = hit.collider
+			var hit_pos = hit.position
+
+			spawn_tracer(current_pos, hit_pos)
+
+			if c != null and c.has_method("take_damage"):
+				c.take_damage(auto_shot_damage)
+				already_hit.append(c)
+
+			if i == hits - 1:
+				break
+
+			if i >= 1 and randf() >= chance:
+				break
+
+			var enemies = get_tree().get_nodes_in_group("mob")
+			var closest_dist = INF
+			var closest_enemy = null
+			for enemy in enemies:
+				if not is_instance_valid(enemy) or enemy in already_hit:
+					continue
+				var d = hit_pos.distance_to(enemy.global_position)
+				if d < closest_dist:
+					closest_dist = d
+					closest_enemy = enemy
+
+			if closest_enemy:
+				current_dir = (closest_enemy.global_position - hit_pos).normalized()
+				current_pos = hit_pos + current_dir * auto_shot_chain_offset
+				current_target = current_pos + current_dir * auto_shot_range
+			else:
+				break
+		else:
+			break
+
+	AudioManager.play_player_autoshot_2d()
+
+
+# === ТРАССЕР ===
+func spawn_tracer(from: Vector3, to: Vector3) -> void:
+	var tracer: Node3D = TRACER_SCRIPT.new()
+	tracer.set("from", from)
+	tracer.set("to", to)
+
+	# предпочитаем явный контейнер через группу, чтобы не зависеть
+	# от глубины иерархии игрока в сцене
+	var world: Node = null
+	var containers = get_tree().get_nodes_in_group("tracer_container")
+	if not containers.is_empty():
+		world = containers[0]
+	else:
+		world = get_tree().current_scene
+		if world == null:
+			world = get_parent().get_parent().get_parent()
+
+	world.add_child(tracer)
+
+
+# === УМЕНЬШЕНИЕ ИНТЕРВАЛА ===
+func reduce_auto_shot_interval(amount: float):
+	auto_shot_interval_current = max(auto_shot_min_interval, auto_shot_interval_current - amount)
+	print("⏱️ Интервал авто-шота уменьшен до ", auto_shot_interval_current)

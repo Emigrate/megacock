@@ -113,18 +113,14 @@ func try_fire() -> bool:
 		dir = dir.rotated(cam.global_transform.basis.x, randf_range(-spread, spread))
 	_time_since_shot = 0.0
 
-	# --- ПОЛУЧАЕМ ИГРОКА И ЕГО УРОВЕНЬ ЦЕПИ ---
 	var player = get_tree().get_first_node_in_group("player")
-	var chains = player.chain_count if player else 0
+	var chain_level = player.chain_count if player else 0
 
-	# --- ЗАПУСКАЕМ ЦЕПНОЙ ВЫСТРЕЛ ---
-	_fire_chain(origin, dir, chains, player, space_state)
+	_fire_chain(origin, dir, chain_level, player, space_state)
 
-	# --- МАЗЛ (для первого выстрела) ---
 	var muzzle_pos := cam.global_position + cam.global_transform.basis * muzzle_offset
 	spawn_flash(muzzle_pos)
 
-	# --- ОТДАЧА И FOV-ШЕЙК ---
 	var speed_factor := 0.0
 	if player is CharacterBody3D:
 		var horiz := Vector2(player.velocity.x, player.velocity.z)
@@ -144,7 +140,7 @@ func try_fire() -> bool:
 	return true
 
 
-func _fire_chain(origin: Vector3, dir: Vector3, max_chains: int, player: Node, space_state: PhysicsDirectSpaceState3D) -> void:
+func _fire_chain(origin: Vector3, dir: Vector3, chain_level: int, player: Node, space_state: PhysicsDirectSpaceState3D) -> void:
 	var cam := get_parent() as Camera3D
 
 	var current_pos: Vector3 = origin
@@ -153,7 +149,10 @@ func _fire_chain(origin: Vector3, dir: Vector3, max_chains: int, player: Node, s
 
 	var tracer_from: Vector3 = cam.global_position + cam.global_transform.basis * tracer_offset
 
-	var hits: int = max(1, max_chains + 1)
+	var max_bounces: int = chain_level
+	var chance: float = 0.5 + 0.1 * (max_bounces - 1)
+	var hits: int = max(1, max_bounces + 1)
+
 	var already_hit: Array = []
 
 	for i in range(hits):
@@ -173,6 +172,9 @@ func _fire_chain(origin: Vector3, dir: Vector3, max_chains: int, player: Node, s
 				already_hit.append(c)
 
 			if i == hits - 1:
+				break
+
+			if i >= 1 and randf() >= chance:
 				break
 
 			var enemies := get_tree().get_nodes_in_group("mob")

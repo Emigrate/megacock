@@ -106,6 +106,8 @@ func try_fire() -> bool:
 		can_fire = true)
 
 	var cam: Camera3D = get_parent() as Camera3D
+	var space_state: PhysicsDirectSpaceState3D = cam.get_world_3d().direct_space_state
+
 	var origin: Vector3 = cam.global_position
 	var dir: Vector3 = -cam.global_transform.basis.z
 
@@ -118,13 +120,10 @@ func try_fire() -> bool:
 
 	# --- ПОЛУЧАЕМ ИГРОКА И ЕГО УРОВЕНЬ ЦЕПИ ---
 	var player: Node = get_tree().get_first_node_in_group("player")
-	var chains: int = 0
-	if player:
-		chains = player.chain_count
-	print("🔫 Стреляем. chains = ", chains, " | player = ", player)
+	var chain_level: int = player.chain_count if player else 0
 
 	# --- ЗАПУСКАЕМ ЦЕПНОЙ ВЫСТРЕЛ ---
-	_fire_chain(origin, dir, chains, player)
+	_fire_chain(origin, dir, chain_level, player, space_state)
 
 	# --- МАЗЛ (для первого выстрела) ---
 	var muzzle_pos: Vector3 = cam.global_position + cam.global_transform.basis * muzzle_offset
@@ -150,71 +149,64 @@ func try_fire() -> bool:
 	return true
 
 
-func _fire_chain(origin: Vector3, dir: Vector3, max_chains: int, player: Node) -> void:
+func _fire_chain(origin: Vector3, dir: Vector3, chain_level: int, player: Node, space_state: PhysicsDirectSpaceState3D) -> void:
 	var cam: Camera3D = get_parent() as Camera3D
-	var space: PhysicsDirectSpaceState3D = cam.get_world_3d().direct_space_state
 
 	var current_pos: Vector3 = origin
 	var current_dir: Vector3 = dir
 	var current_target: Vector3 = current_pos + current_dir * shoot_range
 
-	# Первый трейсер летит от дула
 	var tracer_from: Vector3 = cam.global_position + cam.global_transform.basis * tracer_offset
 
-	var hits: int = max(1, max_chains + 1)
-	print("⛓️ hits = ", hits, " (max_chains было ", max_chains, ")")
+	var max_bounces: int = chain_level
+	var chance: float = 0.5 + 0.1 * (max_bounces - 1)  # 0.5 ... 1.0
+	var hits: int = max(1, max_bounces + 1)  # основной + возможные отскоки
+
 	var already_hit: Array = []
 
 	for i in range(hits):
-		var query: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(current_pos, current_target)
+		var query := PhysicsRayQueryParameters3D.create(current_pos, current_target)
 		if player:
 			query.exclude = [player.get_rid()]
-		var hit: Dictionary = space.intersect_ray(query)
+		var hit: Dictionary = space_state.intersect_ray(query)
 
 		if not hit.is_empty():
 			var c: Object = hit.collider
 			var hit_position: Vector3 = hit.position
 
-			print("🎯 Попал в: ", c, " | already_hit размер: ", already_hit.size())
-
-			# Рисуем трейсер: от предыдущей точки (дуло или пред. враг) до текущего попадания
 			spawn_tracer(tracer_from, hit_position)
 
 			if c != null and c.has_method("take_damage"):
 				c.take_damage(damage)
 				already_hit.append(c)
 
-			# Последний доступный отскок — цепь заканчивается
 			if i == hits - 1:
-				print("⛓️ Это последний доступный отскок, обрываем")
 				break
 
-			var enemies: Array = get_tree().get_nodes_in_group("mob")
-			print("👥 Врагов в группе mob: ", enemies.size())
+			# Проверяем шанс на отскок (только для i >= 1)
+			if i >= 1 and randf() >= chance:
+				break
 
-			var closest_dist: float = INF
+			var enemies := get_tree().get_nodes_in_group("mob")
+			var closest_dist := INF
 			var closest_enemy: Node3D = null
 
 			for enemy in enemies:
 				if not is_instance_valid(enemy) or enemy in already_hit:
 					continue
-				var d: float = hit_position.distance_to(enemy.global_position)
+				var d := hit_position.distance_to(enemy.global_position)
 				if d < closest_dist:
 					closest_dist = d
 					closest_enemy = enemy
 
 			if closest_enemy:
-				print("➡️ Скачем в: ", closest_enemy, " | дистанция: ", closest_dist)
 				current_dir = (closest_enemy.global_position - hit_position).normalized()
 				current_pos = hit_position + current_dir * 0.3
 				current_target = current_pos + current_dir * shoot_range
-				tracer_from = hit_position  # следующий трейсер стартует от точки попадания
+				tracer_from = hit_position
 			else:
-				print("❌ Нет доступного следующего врага для отскока")
 				break
 		else:
-			print("🔵 Промах, цепь прервана на сегменте ", i)
-			# Промах — дорисовываем трейсер до максимальной дистанции и обрываем цепь
 			spawn_tracer(tracer_from, current_target)
 			break
 

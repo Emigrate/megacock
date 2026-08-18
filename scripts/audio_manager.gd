@@ -61,6 +61,13 @@ const PLAYER_HURT_SOUNDS := [
 ]
 const PLAYER_DEATH_SOUND := "res://assets/audio/player/player_death.ogg"
 
+# ===== НОВЫЕ ЗВУКИ ДЛЯ АВТО-ШОТА =====
+const PLAYER_AUTOSHOT_SOUNDS := [
+	"res://assets/audio/player/player_autoshot1.ogg",
+	"res://assets/audio/player/player_autoshot2.ogg",
+]
+# ========================================
+
 # ===== НОВЫЙ ХИТМАРКЕР =====
 const HITMARKER_SOUND := "res://assets/audio/hitmarker.ogg"
 # ===========================
@@ -104,11 +111,20 @@ const HITMARKER_SOUND := "res://assets/audio/hitmarker.ogg"
 # --- ГРОМКОСТЬ ЗВУКОВ ИГРОКА (шина Master) ---
 @export var player_hurt_volume_db: float = -5.0
 @export var player_death_volume_db: float = -5.0
-@export var hitmarker_volume_db: float = -23.0   # <-- НОВАЯ КРУТИЛКА
+@export var hitmarker_volume_db: float = -23.0
+@export var autoshot_volume_db: float = -18.0
 
 # --- АНТИ-КЛИППИНГ ДЛЯ ХИТМАРКЕРА ---
-@export var hitmarker_min_interval_ms: int = 45  # минимальный интервал между проигрываниями
+@export var hitmarker_min_interval_ms: int = 45
 var _last_hitmarker_time_ms: int = 0
+
+# --- АНТИ-КЛИППИНГ ДЛЯ АВТО-ШОТА ---
+@export var autoshot_min_interval_ms: int = 150  # минимальный интервал между звуками авто-шота (мс)
+var _last_autoshot_time_ms: int = 0
+
+# --- АНТИ-КЛИППИНГ ДЛЯ ЗВУКОВ ХИТА МОБОВ ---
+@export var mob_hit_min_interval_ms: int = 100
+var _last_mob_hit_times: Dictionary = {}
 
 # --- ПАРАМЕТРЫ 3D-ЗВУКОВ ---
 @export var max_distance_3d := 100.0
@@ -203,26 +219,34 @@ func play_axe_swing_2d() -> void:
 
 
 # ============================================================
-# ХИТМАРКЕР (2D, шина Master) — с защитой от клиппинга при частых попаданиях
+# ХИТМАРКЕР (2D, шина Master)
 # ============================================================
 func play_hitmarker() -> void:
 	var now := Time.get_ticks_msec()
 	if now - _last_hitmarker_time_ms < hitmarker_min_interval_ms:
-		return  # слишком часто — пропускаем, чтобы не было наложения/клиппинга
+		return
 	_last_hitmarker_time_ms = now
 	play_single(HITMARKER_SOUND, hitmarker_volume_db, BUS_MASTER)
 
 
 # ============================================================
-# ЗВУКИ МОБОВ (3D, шина Mobs) — кроме смерти
+# ЗВУКИ МОБОВ (3D, шина Mobs)
 # ============================================================
+func _play_mob_hit_limited(sound_path: String, position: Vector3, volume_db: float, sound_key: String) -> void:
+	var now := Time.get_ticks_msec()
+	var last_time = _last_mob_hit_times.get(sound_key, 0)
+	if now - last_time < mob_hit_min_interval_ms:
+		return
+	_last_mob_hit_times[sound_key] = now
+	var p = _create_3d_player(sound_path, position, volume_db, BUS_MOBS)
+	if p: p.play()
+
 func play_ghoul_spawn_3d(pos: Vector3) -> void:
 	var p = _create_3d_player(GHOUL_SPAWN_SOUND, pos, ghoul_spawn_volume_db, BUS_MOBS)
 	if p: p.play()
 
 func play_ghoul_hit_3d(pos: Vector3) -> void:
-	var p = _create_3d_player(GHOUL_HIT_SOUND, pos, ghoul_hit_volume_db, BUS_MOBS)
-	if p: p.play()
+	_play_mob_hit_limited(GHOUL_HIT_SOUND, pos, ghoul_hit_volume_db, "ghoul_hit")
 
 func play_ghoul_swing_3d(pos: Vector3) -> void:
 	var p = _create_3d_player(GHOUL_SWING_SOUND, pos, ghoul_swing_volume_db, BUS_MOBS)
@@ -233,16 +257,14 @@ func play_wrathdemon_spawn_3d(pos: Vector3) -> void:
 	if p: p.play()
 
 func play_wrathdemon_hit_3d(pos: Vector3) -> void:
-	var p = _create_3d_player(WRATHDEMON_HIT_SOUND, pos, wrathdemon_hit_volume_db, BUS_MOBS)
-	if p: p.play()
+	_play_mob_hit_limited(WRATHDEMON_HIT_SOUND, pos, wrathdemon_hit_volume_db, "wrathdemon_hit")
 
 func play_wrathdemon_attack_3d(pos: Vector3) -> void:
 	var p = _create_3d_player(WRATHDEMON_ATTACK_SOUND, pos, wrathdemon_attack_volume_db, BUS_MOBS)
 	if p: p.play()
 
 func play_sceleton_hit_3d(pos: Vector3) -> void:
-	var p = _create_3d_player(SCELETON_HIT_SOUND, pos, sceleton_hit_volume_db, BUS_MOBS)
-	if p: p.play()
+	_play_mob_hit_limited(SCELETON_HIT_SOUND, pos, sceleton_hit_volume_db, "sceleton_hit")
 
 func play_sceleton_attack_3d(pos: Vector3) -> void:
 	var p = _create_3d_player(SCELETON_ATTACK_SOUNDS[randi() % SCELETON_ATTACK_SOUNDS.size()], pos, sceleton_attack_volume_db, BUS_MOBS)
@@ -289,7 +311,7 @@ func play_fireball_fly_3d(_pos: Vector3) -> AudioStreamPlayer3D:
 
 
 # ============================================================
-# ЗВУКИ ИГРОКА (3D, шина Master — можно оставить, они не обязаны быть 2D)
+# ЗВУКИ ИГРОКА (3D, шина Master)
 # ============================================================
 func play_player_hurt_3d(pos: Vector3) -> void:
 	var p = _create_3d_player(PLAYER_HURT_SOUNDS[randi() % PLAYER_HURT_SOUNDS.size()], pos, player_hurt_volume_db, BUS_MASTER)
@@ -298,6 +320,31 @@ func play_player_hurt_3d(pos: Vector3) -> void:
 func play_player_death_3d(pos: Vector3) -> void:
 	var p = _create_3d_player(PLAYER_DEATH_SOUND, pos, player_death_volume_db, BUS_MASTER)
 	if p: p.play()
+
+
+# ============================================================
+# НОВАЯ ФУНКЦИЯ: ЗВУК АВТО-ШОТА (2D, шина Master)
+# ============================================================
+func play_player_autoshot_2d() -> void:
+	var now := Time.get_ticks_msec()
+	if now - _last_autoshot_time_ms < autoshot_min_interval_ms:
+		return  # слишком часто — пропускаем
+	_last_autoshot_time_ms = now
+	
+	# Случайный выбор звука и небольшая вариация высоты тона
+	var p := AudioStreamPlayer.new()
+	var cam := _get_camera()
+	if cam:
+		cam.add_child(p)
+	else:
+		get_tree().root.add_child(p)
+	var idx := randi() % PLAYER_AUTOSHOT_SOUNDS.size()
+	p.stream = load(PLAYER_AUTOSHOT_SOUNDS[idx]) as AudioStream
+	p.pitch_scale = randf_range(0.95, 1.05)  # лёгкая вариация
+	p.volume_db = autoshot_volume_db + master_volume_db
+	p.bus = BUS_MASTER
+	p.finished.connect(p.queue_free)
+	p.play()
 
 
 # ============================================================

@@ -13,8 +13,24 @@ script = ExtResource("1_4cvch")
 
 [node name="FPS" type="Label" parent="." unique_id=1108626293]
 layout_mode = 0
-offset_right = 40.0
-offset_bottom = 22.0
+offset_left = 13.0
+offset_right = 53.0
+offset_bottom = 24.0
+
+[node name="TimeLabel" type="Label" parent="." unique_id=237094121]
+layout_mode = 0
+offset_left = 535.0
+offset_right = 1094.0
+offset_bottom = 121.0
+theme_override_font_sizes/font_size = 39
+
+[node name="MobLabel" type="Label" parent="." unique_id=2122803942]
+layout_mode = 0
+offset_left = 12.0
+offset_top = 17.0
+offset_right = 250.0
+offset_bottom = 159.0
+theme_override_font_sizes/font_size = 23
 
 [node name="HP" type="Label" parent="." unique_id=458931746]
 layout_mode = 0
@@ -25,8 +41,8 @@ offset_bottom = 709.0
 
 [node name="SPEED" type="Label" parent="." unique_id=743777509]
 layout_mode = 0
-offset_left = 561.0
-offset_top = 25.0
-offset_right = 601.0
-offset_bottom = 113.0
+offset_left = 12.0
+offset_top = 39.0
+offset_right = 52.0
+offset_bottom = 127.0
 theme_override_font_sizes/font_size = 24

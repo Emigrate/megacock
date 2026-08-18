@@ -3,7 +3,7 @@ extends Node3D
 
 var from := Vector3.ZERO
 var to := Vector3.ZERO
-var speed := 120.0
+var speed := 150.0
 var _progress := 0.0
 var _total := 1.0
 

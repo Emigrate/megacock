@@ -3,11 +3,11 @@ extends Node3D
 const TRACER_SCRIPT := preload("res://scripts/tracer.gd")
 const FLASH_SCRIPT := preload("res://scripts/muzzle_flash.gd")
 
-@export var pellet_count := 20
-@export var pellet_damage := 25.0
+@export var pellet_count := 12
+@export var pellet_damage := 20.0
 @export var fire_rate := 1
 @export var shoot_range := 100.0
-@export var spread_degrees := 12.0
+@export var spread_degrees := 5.0
 @export var spread_falloff := 1.0
 @export var recoil_amount := 0.3
 @export var first_shot_reset_time := 0.3
@@ -31,6 +31,10 @@ const FLASH_SCRIPT := preload("res://scripts/muzzle_flash.gd")
 
 # --- ИНТЕНСИВНОСТЬ ОТДАЧИ И FOV-ШЕЙКА ---
 @export var camera_shake_intensity := 1
+
+# --- НАСТРОЙКИ ЦЕПИ ДЛЯ ДРОБОВИКА ---
+@export var chain_limit_multiplier: float = 2.0   # во сколько раз больше отскоков
+@export var max_chains_per_shot: int = 5         # сколько дробинок могут инициировать цепь за выстрел
 
 var can_fire := true
 var _model: Node3D
@@ -134,8 +138,7 @@ func try_fire() -> bool:
 
 	var tracer_start := cam.global_position + cam.global_transform.basis * tracer_offset
 
-	var first_hit_pos := Vector3.ZERO
-	var first_hit_occurred := false
+	var hit_positions: Array[Vector3] = []  # собираем все попадания
 
 	for i in range(pellet_count):
 		var angle_h = _generate_normal_angle(spread_rad, spread_falloff)
@@ -153,9 +156,7 @@ func try_fire() -> bool:
 			if c != null and c.has_method("take_damage"):
 				c.take_damage(pellet_damage)
 			spawn_tracer(tracer_start, target)
-			if not first_hit_occurred:
-				first_hit_pos = target
-				first_hit_occurred = true
+			hit_positions.append(target)
 		else:
 			spawn_tracer(tracer_start, to)
 
@@ -171,15 +172,20 @@ func try_fire() -> bool:
 
 	AudioManager.play_shotgun_shot_2d()
 
-	# --- ЦЕПНАЯ РЕАКЦИЯ для дробовика ---
-	if player and player.chain_count > 0 and first_hit_occurred:
-		var chain_dir := (first_hit_pos - cam.global_position).normalized()
-		_fire_chain(first_hit_pos, chain_dir, player.chain_count, player, space_state, pellet_damage)
+	# --- ЦЕПНАЯ РЕАКЦИЯ: каждая дробинка запускает свою цепь ---
+	if player and player.chain_count > 0 and not hit_positions.is_empty():
+		var effective_chain_level = int(player.chain_count * chain_limit_multiplier)
+		# Ограничиваем количество цепей, чтобы не лагало
+		var num_chains = min(hit_positions.size(), max_chains_per_shot)
+		for i in range(num_chains):
+			var start_pos = hit_positions[i]
+			var chain_dir = (start_pos - cam.global_position).normalized()
+			_fire_chain(start_pos, chain_dir, effective_chain_level, player, space_state, pellet_damage)
 
 	return true
 
 
-func _fire_chain(start_pos: Vector3, start_dir: Vector3, max_chains: int, player: Node, space_state: PhysicsDirectSpaceState3D, chain_damage: float) -> void:
+func _fire_chain(start_pos: Vector3, start_dir: Vector3, chain_level: int, player: Node, space_state: PhysicsDirectSpaceState3D, chain_damage: float) -> void:
 	var cam := get_parent() as Camera3D
 
 	var current_pos: Vector3 = start_pos
@@ -188,7 +194,10 @@ func _fire_chain(start_pos: Vector3, start_dir: Vector3, max_chains: int, player
 
 	var tracer_from: Vector3 = cam.global_position + cam.global_transform.basis * tracer_offset
 
-	var hits: int = max(1, max_chains + 1)
+	var max_bounces: int = chain_level
+	var chance: float = 0.5 + 0.1 * (max_bounces - 1)
+	var hits: int = max(1, max_bounces + 1)
+
 	var already_hit: Array = []
 
 	for i in range(hits):
@@ -208,6 +217,9 @@ func _fire_chain(start_pos: Vector3, start_dir: Vector3, max_chains: int, player
 				already_hit.append(c)
 
 			if i == hits - 1:
+				break
+
+			if i >= 1 and randf() >= chance:
 				break
 
 			var enemies := get_tree().get_nodes_in_group("mob")
