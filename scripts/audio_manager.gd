@@ -1,5 +1,7 @@
 extends Node
-## Глобальный менеджер звуков (автолоад).
+## Глобальный менеджер звуков (автолоад) с пулом объектов.
+## v2: прогрев кэша стримов, free-list пулы (O(1)), ограничение роста пула,
+## кэш зацикленного стрима фаербола.
 
 # --- ИМЕНА ШИН ---
 const BUS_MASTER = "Master"
@@ -15,9 +17,9 @@ const SHOT_SOUNDS := [
 	"res://assets/audio/weapons/glock_shot3.wav",
 ]
 const AK_SHOT_SOUNDS := [
-	"res://assets/audio/weapons/ak-47_shot1.wav",
-	"res://assets/audio/weapons/ak-47_shot2.wav",
-	"res://assets/audio/weapons/ak-47_shot3.wav",
+	"res://assets/audio/weapons/ak-47_shot1.ogg",
+	"res://assets/audio/weapons/ak-47_shot2.ogg",
+	"res://assets/audio/weapons/ak-47_shot3.ogg",
 ]
 const STEP_SOUNDS := [
 	"res://assets/audio/player/footstep_1.wav",
@@ -61,16 +63,13 @@ const PLAYER_HURT_SOUNDS := [
 ]
 const PLAYER_DEATH_SOUND := "res://assets/audio/player/player_death.ogg"
 
-# ===== НОВЫЕ ЗВУКИ ДЛЯ АВТО-ШОТА =====
+# ===== ЗВУКИ АВТО-ШОТА =====
 const PLAYER_AUTOSHOT_SOUNDS := [
 	"res://assets/audio/player/player_autoshot1.ogg",
 	"res://assets/audio/player/player_autoshot2.ogg",
 ]
-# ========================================
 
-# ===== НОВЫЙ ХИТМАРКЕР =====
 const HITMARKER_SOUND := "res://assets/audio/hitmarker.ogg"
-# ===========================
 
 # --- РЕГУЛИРОВКА ГРОМКОСТИ ---
 @export var master_volume_db: float = 10
@@ -112,24 +111,108 @@ const HITMARKER_SOUND := "res://assets/audio/hitmarker.ogg"
 @export var player_hurt_volume_db: float = -5.0
 @export var player_death_volume_db: float = -5.0
 @export var hitmarker_volume_db: float = -23.0
-@export var autoshot_volume_db: float = -18.0
+@export var autoshot_volume_db: float = -20.0
 
 # --- АНТИ-КЛИППИНГ ДЛЯ ХИТМАРКЕРА ---
 @export var hitmarker_min_interval_ms: int = 45
 var _last_hitmarker_time_ms: int = 0
 
 # --- АНТИ-КЛИППИНГ ДЛЯ АВТО-ШОТА ---
-@export var autoshot_min_interval_ms: int = 150  # минимальный интервал между звуками авто-шота (мс)
+@export var autoshot_min_interval_ms: int = 150
 var _last_autoshot_time_ms: int = 0
 
 # --- АНТИ-КЛИППИНГ ДЛЯ ЗВУКОВ ХИТА МОБОВ ---
 @export var mob_hit_min_interval_ms: int = 100
 var _last_mob_hit_times: Dictionary = {}
 
+# --- ПУЛЫ ОБЪЕКТОВ ДЛЯ ЗВУКОВ (free-list, O(1) get/release) ---
+var _2d_pool: Array[AudioStreamPlayer] = []
+var _3d_pool: Array[AudioStreamPlayer3D] = []
+
+# Все когда-либо созданные плееры — нужны для voice stealing при переполнении.
+var _2d_all: Array[AudioStreamPlayer] = []
+var _3d_all: Array[AudioStreamPlayer3D] = []
+
+# --- ПРОГРЕВ ПУЛА ---
+@export var prewarm_2d_count: int = 12
+@export var prewarm_3d_count: int = 16
+
+# --- ЖЁСТКИЙ ПОТОЛОК ПУЛА (voice stealing вместо бесконечного роста) ---
+@export var max_2d_players: int = 32
+@export var max_3d_players: int = 32
+
 # --- ПАРАМЕТРЫ 3D-ЗВУКОВ ---
 @export var max_distance_3d := 100.0
 @export var unit_size_3d := 90.0
 @export var attenuation_model := 2
+
+# --- КЕШ ЗАГРУЖЕННЫХ АУДИО-РЕСУРСОВ (главный фикс проседания FPS) ---
+# держим сильную ссылку на каждый стрим постоянно, чтобы load()
+# никогда не читал файл с диска повторно во время игры
+var _stream_cache: Dictionary = {}
+
+# Закэшированный зацикленный стрим для полёта фаербола (чтобы не
+# делать duplicate() при каждом касте).
+var _fireball_loop_stream: AudioStream
+
+
+func _ready() -> void:
+	_prewarm_stream_cache()
+	_prewarm_pools()
+
+
+# ============================================================
+# ПРОГРЕВ КЭША СТРИМОВ — читаем все файлы с диска один раз, на старте,
+# а не в момент первого выстрела/удара посреди геймплея.
+# ============================================================
+func _prewarm_stream_cache() -> void:
+	var all_paths: Array = []
+	all_paths.append_array(SHOT_SOUNDS)
+	all_paths.append_array(AK_SHOT_SOUNDS)
+	all_paths.append_array(STEP_SOUNDS)
+	all_paths.append_array(SCELETON_ATTACK_SOUNDS)
+	all_paths.append_array(PLAYER_HURT_SOUNDS)
+	all_paths.append_array(PLAYER_AUTOSHOT_SOUNDS)
+	all_paths.append_array([
+		DASH_SOUND, AXE_SWING_SOUND, SHOTGUN_SHOT_SOUND,
+		GHOUL_SPAWN_SOUND, GHOUL_HIT_SOUND, GHOUL_DEATH_SOUND, GHOUL_SWING_SOUND,
+		WRATHDEMON_SPAWN_SOUND, WRATHDEMON_HIT_SOUND, WRATHDEMON_DIE_SOUND, WRATHDEMON_ATTACK_SOUND,
+		SCELETON_HIT_SOUND, SCELETON_DEATH_SOUND,
+		FIREBALL_FLY_SOUND, FIREBALL_EXPLOSION_SOUND,
+		PLAYER_DEATH_SOUND, HITMARKER_SOUND,
+	])
+
+	for path in all_paths:
+		_get_stream(path)
+
+	# Готовим зацикленный дубликат стрима полёта фаербола заранее,
+	# чтобы play_fireball_fly_3d() не делал duplicate() на каждый каст.
+	var base := _get_stream(FIREBALL_FLY_SOUND)
+	if base:
+		_fireball_loop_stream = base.duplicate()
+		_fireball_loop_stream.loop = true
+
+
+func _prewarm_pools() -> void:
+	for i in range(prewarm_2d_count):
+		var p := AudioStreamPlayer.new()
+		p.bus = BUS_MASTER
+		add_child(p)
+		p.finished.connect(_release_2d_player.bind(p))
+		_2d_pool.append(p)
+		_2d_all.append(p)
+
+	for i in range(prewarm_3d_count):
+		var p3 := AudioStreamPlayer3D.new()
+		p3.max_distance = max_distance_3d
+		p3.unit_size = unit_size_3d
+		@warning_ignore("INT_AS_ENUM_WITHOUT_CAST")
+		p3.attenuation_model = attenuation_model
+		p3.bus = BUS_MASTER
+		add_child(p3)
+		p3.finished.connect(_release_3d_player.bind(p3))
+		_3d_pool.append(p3)
+		_3d_all.append(p3)
 
 
 func _get_camera() -> Camera3D:
@@ -140,70 +223,127 @@ func _get_camera() -> Camera3D:
 
 
 # ============================================================
-# 2D-ЗВУКИ (с поддержкой выбора шины)
+# КЕШ АУДИО-РЕСУРСОВ
+# ============================================================
+func _get_stream(path: String) -> AudioStream:
+	if path.is_empty():
+		return null
+	if _stream_cache.has(path):
+		return _stream_cache[path]
+	var stream := load(path) as AudioStream
+	if stream:
+		_stream_cache[path] = stream
+	return stream
+
+
+# ============================================================
+# ВНУТРЕННИЕ ФУНКЦИИ ДЛЯ ПУЛА (2D) — free-list, O(1)
+# ============================================================
+func _get_2d_player() -> AudioStreamPlayer:
+	if not _2d_pool.is_empty():
+		return _2d_pool.pop_back()
+
+	# Свободных нет. Если не уперлись в потолок — создаём новый.
+	if _2d_all.size() < max_2d_players:
+		var p_new := AudioStreamPlayer.new()
+		add_child(p_new)
+		p_new.finished.connect(_release_2d_player.bind(p_new))
+		_2d_all.append(p_new)
+		return p_new
+
+	# Уперлись в потолок — крадём голос у самого первого проигрывающего
+	# плеера (voice stealing), чтобы не плодить объекты бесконечно.
+	for p in _2d_all:
+		if p.playing:
+			p.stop()
+			return p
+	# На крайний случай (не должно случаться) — просто первый из всех.
+	return _2d_all[0]
+
+func _release_2d_player(p: AudioStreamPlayer) -> void:
+	p.stop()
+	p.stream = null
+	p.volume_db = 0.0
+	p.pitch_scale = 1.0
+	p.bus = BUS_MASTER
+	if not _2d_pool.has(p):
+		_2d_pool.append(p)
+
+
+# ============================================================
+# ВНУТРЕННИЕ ФУНКЦИИ ДЛЯ ПУЛА (3D) — free-list, O(1)
+# ============================================================
+func _get_3d_player() -> AudioStreamPlayer3D:
+	if not _3d_pool.is_empty():
+		return _3d_pool.pop_back()
+
+	if _3d_all.size() < max_3d_players:
+		var p_new := AudioStreamPlayer3D.new()
+		p_new.max_distance = max_distance_3d
+		p_new.unit_size = unit_size_3d
+		@warning_ignore("INT_AS_ENUM_WITHOUT_CAST")
+		p_new.attenuation_model = attenuation_model
+		add_child(p_new)
+		p_new.finished.connect(_release_3d_player.bind(p_new))
+		_3d_all.append(p_new)
+		return p_new
+
+	for p in _3d_all:
+		if p.playing:
+			p.stop()
+			return p
+	return _3d_all[0]
+
+func _release_3d_player(p: AudioStreamPlayer3D) -> void:
+	p.stop()
+	p.stream = null
+	p.volume_db = 0.0
+	p.pitch_scale = 1.0
+	p.bus = BUS_MASTER
+	p.global_position = Vector3.ZERO
+	if not _3d_pool.has(p):
+		_3d_pool.append(p)
+
+
+# ============================================================
+# 2D-ЗВУКИ (с поддержкой пула)
 # ============================================================
 func play_random(paths: Array, volume_db := -25.0, bus_name: String = BUS_MASTER) -> void:
 	if paths.is_empty():
 		return
-	var p := AudioStreamPlayer.new()
-	var cam := _get_camera()
-	if cam:
-		cam.add_child(p)
-	else:
-		get_tree().root.add_child(p)
 	var idx := randi() % paths.size()
-	p.stream = load(paths[idx]) as AudioStream
-	p.pitch_scale = 1.0
-	p.volume_db = volume_db + master_volume_db
-	p.bus = bus_name
-	p.finished.connect(p.queue_free)
-	p.play()
-
+	play_single(paths[idx], volume_db, bus_name)
 
 func play_single(path: String, volume_db := -25.0, bus_name: String = BUS_MASTER) -> void:
-	if path.is_empty():
+	var stream := _get_stream(path)
+	if stream == null:
 		return
-	var p := AudioStreamPlayer.new()
-	var cam := _get_camera()
-	if cam:
-		cam.add_child(p)
-	else:
-		get_tree().root.add_child(p)
-	p.stream = load(path) as AudioStream
+	var p := _get_2d_player()
+	p.stream = stream
 	p.pitch_scale = 1.0
 	p.volume_db = volume_db + master_volume_db
 	p.bus = bus_name
-	p.finished.connect(p.queue_free)
 	p.play()
 
 
 # ============================================================
-# ВСПОМОГАТЕЛЬНАЯ ФУНКЦИЯ ДЛЯ 3D-ЗВУКОВ
+# 3D-ЗВУКИ (с поддержкой пула)
 # ============================================================
-func _create_3d_player(stream_path: String, position: Vector3, volume_db: float, bus_name: String = BUS_MASTER) -> AudioStreamPlayer3D:
-	if not ResourceLoader.exists(stream_path):
-		return null
-	var p := AudioStreamPlayer3D.new()
-	p.stream = load(stream_path) as AudioStream
+func _play_3d(path: String, position: Vector3, volume_db: float, bus_name: String = BUS_MASTER) -> void:
+	var stream := _get_stream(path)
+	if stream == null:
+		return
+	var p := _get_3d_player()
+	p.stream = stream
 	p.pitch_scale = 1.0
 	p.volume_db = volume_db + master_volume_db + master_3d_volume_db
-	p.max_distance = max_distance_3d
-	p.unit_size = unit_size_3d
-	@warning_ignore("INT_AS_ENUM_WITHOUT_CAST")
-	p.attenuation_model = attenuation_model
 	p.bus = bus_name
-	var world := get_tree().current_scene
-	if world:
-		world.add_child(p)
-	else:
-		get_tree().root.add_child(p)
 	p.global_position = position
-	p.finished.connect(p.queue_free)
-	return p
+	p.play()
 
 
 # ============================================================
-# ЗВУКИ ОРУЖИЯ — 2D (без пространства, шина Shots)
+# ЗВУКИ ОРУЖИЯ — 2D (пул уже есть)
 # ============================================================
 func play_shot_2d() -> void:
 	play_random(SHOT_SOUNDS, shot_volume_db, BUS_SHOTS)
@@ -238,117 +378,127 @@ func _play_mob_hit_limited(sound_path: String, position: Vector3, volume_db: flo
 	if now - last_time < mob_hit_min_interval_ms:
 		return
 	_last_mob_hit_times[sound_key] = now
-	var p = _create_3d_player(sound_path, position, volume_db, BUS_MOBS)
-	if p: p.play()
+	_play_3d(sound_path, position, volume_db, BUS_MOBS)
 
 func play_ghoul_spawn_3d(pos: Vector3) -> void:
-	var p = _create_3d_player(GHOUL_SPAWN_SOUND, pos, ghoul_spawn_volume_db, BUS_MOBS)
-	if p: p.play()
+	_play_3d(GHOUL_SPAWN_SOUND, pos, ghoul_spawn_volume_db, BUS_MOBS)
 
 func play_ghoul_hit_3d(pos: Vector3) -> void:
 	_play_mob_hit_limited(GHOUL_HIT_SOUND, pos, ghoul_hit_volume_db, "ghoul_hit")
 
 func play_ghoul_swing_3d(pos: Vector3) -> void:
-	var p = _create_3d_player(GHOUL_SWING_SOUND, pos, ghoul_swing_volume_db, BUS_MOBS)
-	if p: p.play()
+	_play_3d(GHOUL_SWING_SOUND, pos, ghoul_swing_volume_db, BUS_MOBS)
 
 func play_wrathdemon_spawn_3d(pos: Vector3) -> void:
-	var p = _create_3d_player(WRATHDEMON_SPAWN_SOUND, pos, wrathdemon_spawn_volume_db, BUS_MOBS)
-	if p: p.play()
+	_play_3d(WRATHDEMON_SPAWN_SOUND, pos, wrathdemon_spawn_volume_db, BUS_MOBS)
 
 func play_wrathdemon_hit_3d(pos: Vector3) -> void:
 	_play_mob_hit_limited(WRATHDEMON_HIT_SOUND, pos, wrathdemon_hit_volume_db, "wrathdemon_hit")
 
 func play_wrathdemon_attack_3d(pos: Vector3) -> void:
-	var p = _create_3d_player(WRATHDEMON_ATTACK_SOUND, pos, wrathdemon_attack_volume_db, BUS_MOBS)
-	if p: p.play()
+	_play_3d(WRATHDEMON_ATTACK_SOUND, pos, wrathdemon_attack_volume_db, BUS_MOBS)
 
 func play_sceleton_hit_3d(pos: Vector3) -> void:
 	_play_mob_hit_limited(SCELETON_HIT_SOUND, pos, sceleton_hit_volume_db, "sceleton_hit")
 
 func play_sceleton_attack_3d(pos: Vector3) -> void:
-	var p = _create_3d_player(SCELETON_ATTACK_SOUNDS[randi() % SCELETON_ATTACK_SOUNDS.size()], pos, sceleton_attack_volume_db, BUS_MOBS)
-	if p: p.play()
+	var idx := randi() % SCELETON_ATTACK_SOUNDS.size()
+	var stream := _get_stream(SCELETON_ATTACK_SOUNDS[idx])
+	if stream == null:
+		return
+	var p := _get_3d_player()
+	p.stream = stream
+	p.pitch_scale = 1.0
+	p.volume_db = sceleton_attack_volume_db + master_volume_db + master_3d_volume_db
+	p.bus = BUS_MOBS
+	p.global_position = pos
+	p.play()
 
 
 # ============================================================
 # ЗВУКИ СМЕРТИ МОБОВ (3D, шина MobDeaths)
 # ============================================================
 func play_ghoul_death_3d(pos: Vector3) -> void:
-	var p = _create_3d_player(GHOUL_DEATH_SOUND, pos, ghoul_death_volume_db, BUS_MOB_DEATHS)
-	if p: p.play()
+	_play_3d(GHOUL_DEATH_SOUND, pos, ghoul_death_volume_db, BUS_MOB_DEATHS)
 
 func play_wrathdemon_die_3d(pos: Vector3) -> void:
-	var p = _create_3d_player(WRATHDEMON_DIE_SOUND, pos, wrathdemon_die_volume_db, BUS_MOB_DEATHS)
-	if p: p.play()
+	_play_3d(WRATHDEMON_DIE_SOUND, pos, wrathdemon_die_volume_db, BUS_MOB_DEATHS)
 
 func play_sceleton_death_3d(pos: Vector3) -> void:
-	var p = _create_3d_player(SCELETON_DEATH_SOUND, pos, sceleton_death_volume_db, BUS_MOB_DEATHS)
-	if p: p.play()
+	_play_3d(SCELETON_DEATH_SOUND, pos, sceleton_death_volume_db, BUS_MOB_DEATHS)
 
 
 # ============================================================
 # ЗВУКИ ВЗРЫВОВ (3D, шина Explosions)
 # ============================================================
 func play_fireball_explosion_3d(pos: Vector3) -> void:
-	var p = _create_3d_player(FIREBALL_EXPLOSION_SOUND, pos, fireball_explosion_volume_db, BUS_EXPLOSIONS)
-	if p: p.play()
-
-func play_fireball_fly_3d(_pos: Vector3) -> AudioStreamPlayer3D:
-	if not ResourceLoader.exists(FIREBALL_FLY_SOUND):
-		return null
-	var p := AudioStreamPlayer3D.new()
-	p.stream = load(FIREBALL_FLY_SOUND)
-	p.stream.loop = true
-	p.pitch_scale = 1.0
-	p.volume_db = fireball_fly_volume_db + master_volume_db + master_3d_volume_db
-	p.max_distance = max_distance_3d
-	p.unit_size = unit_size_3d
-	@warning_ignore("INT_AS_ENUM_WITHOUT_CAST")
-	p.attenuation_model = attenuation_model
-	p.bus = BUS_EXPLOSIONS
-	return p
+	_play_3d(FIREBALL_EXPLOSION_SOUND, pos, fireball_explosion_volume_db, BUS_EXPLOSIONS)
 
 
 # ============================================================
 # ЗВУКИ ИГРОКА (3D, шина Master)
 # ============================================================
 func play_player_hurt_3d(pos: Vector3) -> void:
-	var p = _create_3d_player(PLAYER_HURT_SOUNDS[randi() % PLAYER_HURT_SOUNDS.size()], pos, player_hurt_volume_db, BUS_MASTER)
-	if p: p.play()
+	var idx := randi() % PLAYER_HURT_SOUNDS.size()
+	_play_3d(PLAYER_HURT_SOUNDS[idx], pos, player_hurt_volume_db, BUS_MASTER)
 
 func play_player_death_3d(pos: Vector3) -> void:
-	var p = _create_3d_player(PLAYER_DEATH_SOUND, pos, player_death_volume_db, BUS_MASTER)
-	if p: p.play()
+	_play_3d(PLAYER_DEATH_SOUND, pos, player_death_volume_db, BUS_MASTER)
 
 
 # ============================================================
-# НОВАЯ ФУНКЦИЯ: ЗВУК АВТО-ШОТА (2D, шина Master)
+# ЗВУК АВТО-ШОТА (2D, шина Master, с защитой и пулом)
 # ============================================================
 func play_player_autoshot_2d() -> void:
 	var now := Time.get_ticks_msec()
 	if now - _last_autoshot_time_ms < autoshot_min_interval_ms:
-		return  # слишком часто — пропускаем
+		return
 	_last_autoshot_time_ms = now
-	
-	# Случайный выбор звука и небольшая вариация высоты тона
-	var p := AudioStreamPlayer.new()
-	var cam := _get_camera()
-	if cam:
-		cam.add_child(p)
-	else:
-		get_tree().root.add_child(p)
+
 	var idx := randi() % PLAYER_AUTOSHOT_SOUNDS.size()
-	p.stream = load(PLAYER_AUTOSHOT_SOUNDS[idx]) as AudioStream
-	p.pitch_scale = randf_range(0.95, 1.05)  # лёгкая вариация
+	var stream := _get_stream(PLAYER_AUTOSHOT_SOUNDS[idx])
+	if stream == null:
+		return
+	var p := _get_2d_player()
+	p.stream = stream
+	p.pitch_scale = randf_range(0.95, 1.05)
 	p.volume_db = autoshot_volume_db + master_volume_db
 	p.bus = BUS_MASTER
-	p.finished.connect(p.queue_free)
 	p.play()
 
 
 # ============================================================
-# 2D-ОБЁРТКИ (для старого кода, оставлены для совместимости)
+# ФАЕРБОЛ (3D, шина Explosions, отдельный не-пуловый плеер — им
+# управляет сам фаербол-объект, поэтому пул тут не подходит).
+# Стрим для зацикливания теперь берём из кэша _fireball_loop_stream,
+# посчитанного один раз при старте, а не duplicate() на каждый вызов.
+# ============================================================
+func play_fireball_fly_3d(_pos: Vector3) -> AudioStreamPlayer3D:
+	if _fireball_loop_stream == null:
+		# fallback на случай, если ресурс появился уже после _ready()
+		if not ResourceLoader.exists(FIREBALL_FLY_SOUND):
+			return null
+		var base_stream := _get_stream(FIREBALL_FLY_SOUND)
+		if base_stream == null:
+			return null
+		_fireball_loop_stream = base_stream.duplicate()
+		_fireball_loop_stream.loop = true
+
+	var p := AudioStreamPlayer3D.new()
+	p.max_distance = max_distance_3d
+	p.unit_size = unit_size_3d
+	@warning_ignore("INT_AS_ENUM_WITHOUT_CAST")
+	p.attenuation_model = attenuation_model
+	p.stream = _fireball_loop_stream
+	p.pitch_scale = 1.0
+	p.volume_db = fireball_fly_volume_db + master_volume_db + master_3d_volume_db
+	p.bus = BUS_EXPLOSIONS
+	# Возвращаем плеер без родителя — фаербол сам добавит его как дочерний.
+	return p
+
+
+# ============================================================
+# 2D-ОБЁРТКИ (для старого кода, но теперь с пулом и кешем)
 # ============================================================
 func play_step() -> void: play_random(STEP_SOUNDS, step_volume_db)
 func play_land() -> void: play_random(STEP_SOUNDS, land_volume_db)

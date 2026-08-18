@@ -1,5 +1,6 @@
+class_name Tracer
 extends Node3D
-## Летящий трейсер-штрих: короткий яркий штрих с гаснущим хвостом, проносится от дула к цели.
+## Летящий трейсер-штрих.
 
 var from := Vector3.ZERO
 var to := Vector3.ZERO
@@ -7,14 +8,13 @@ var speed := 150.0
 var _progress := 0.0
 var _total := 1.0
 
-
 func _ready() -> void:
 	_total = maxf(from.distance_to(to), 0.1)
 	global_position = from
 	build()
 
 func build() -> void:
-	# Яркий короткий штрих
+	# Яркий штрих
 	var box := MeshInstance3D.new()
 	var bm := BoxMesh.new()
 	bm.size = Vector3(0.05, 0.05, 0.8)
@@ -28,7 +28,7 @@ func build() -> void:
 	box.mesh = bm
 	add_child(box)
 
-	# Хвост — полупрозрачный, за ним (позади по направлению движения)
+	# Хвост
 	var tail := MeshInstance3D.new()
 	var tm := BoxMesh.new()
 	tm.size = Vector3(0.04, 0.04, 0.6)
@@ -41,11 +41,9 @@ func build() -> void:
 	tail.material_override = tmat
 	tail.mesh = tm
 	add_child(tail)
+	tail.position = Vector3(0, 0, 0.7)
 
-	# Pozition tail позади яркого штриха (локально -Z)
-	tail.position = Vector3(0, 0, 0.7)   # за яркой частью
-
-	# Ориентация: длинная ось (Z) вдоль полёта
+	# Ориентация
 	var dir := (to - from).normalized()
 	if dir == Vector3.ZERO:
 		dir = Vector3.FORWARD
@@ -53,7 +51,6 @@ func build() -> void:
 		look_at(global_position + dir, Vector3.RIGHT)
 	else:
 		look_at(global_position + dir, Vector3.UP)
-
 
 func _process(delta: float) -> void:
 	_progress += speed * delta / _total

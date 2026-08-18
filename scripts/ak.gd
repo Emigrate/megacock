@@ -167,7 +167,9 @@ func _fire_chain(origin: Vector3, dir: Vector3, chain_level: int, player: Node, 
 
 			spawn_tracer(tracer_from, hit_position)
 
-			if c != null and c.has_method("take_damage"):
+			# защита от гонки: цель могла уже быть в процессе удаления
+			# (queue_free вызван, но нода ещё не удалена из памяти)
+			if c != null and is_instance_valid(c) and c is Node and c.is_inside_tree() and c.has_method("take_damage"):
 				c.take_damage(damage)
 				already_hit.append(c)
 
@@ -182,7 +184,9 @@ func _fire_chain(origin: Vector3, dir: Vector3, chain_level: int, player: Node, 
 			var closest_enemy: Node3D = null
 
 			for enemy in enemies:
-				if not is_instance_valid(enemy) or enemy in already_hit:
+				if not is_instance_valid(enemy) or not enemy.is_inside_tree() or enemy in already_hit:
+					continue
+				if enemy.has_method("get_alive") and not enemy.get_alive():
 					continue
 				var d := hit_position.distance_to(enemy.global_position)
 				if d < closest_dist:

@@ -62,6 +62,7 @@ var _pause_visible := false
 var _animation_players: Array = []
 var _fov_slider: HSlider
 var _fov_value_label: Label
+var _damage_numbers_checkbox: CheckButton
 
 # --- НАСТРОЙКИ ОТДАЧИ ---
 @export var recoil_z_multiplier := 3.0
@@ -251,7 +252,7 @@ func _create_pause_ui() -> void:
 	_pause_layer.add_child(rect)
 
 	var container := VBoxContainer.new()
-	container.size = Vector2(300, 200)
+	container.size = Vector2(300, 260)
 	container.position = (rect.size - container.size) / 2
 	container.add_theme_constant_override("separation", 20)
 	_pause_layer.add_child(container)
@@ -291,7 +292,21 @@ func _create_pause_ui() -> void:
 	_fov_value_label.size = Vector2(40, 40)
 	fov_box.add_child(_fov_value_label)
 
+	# --- ЧЕКБОКС ВКЛ/ВЫКЛ ЦИФР УРОНА ---
+	_damage_numbers_checkbox = CheckButton.new()
+	_damage_numbers_checkbox.text = "Показывать цифры урона"
+	_damage_numbers_checkbox.custom_minimum_size = Vector2(260, 40)
+	_damage_numbers_checkbox.add_theme_font_size_override("font_size", 18)
+	_damage_numbers_checkbox.button_pressed = DamageNumberPool.numbers_enabled
+	_damage_numbers_checkbox.toggled.connect(_on_damage_numbers_toggled)
+	container.add_child(_damage_numbers_checkbox)
+
 	get_viewport().size_changed.connect(_resize_pause_ui)
+
+
+func _on_damage_numbers_toggled(pressed: bool) -> void:
+	print("🟡 Чекбокс нажат! pressed = ", pressed)  # ОТЛАДКА
+	DamageNumberPool.set_numbers_enabled(pressed)
 
 
 func _resize_pause_ui() -> void:
@@ -327,6 +342,8 @@ func _toggle_pause() -> void:
 			_fov_slider.value = camera.fov
 			if _fov_value_label:
 				_fov_value_label.text = str(round(camera.fov))
+		if _damage_numbers_checkbox:
+			_damage_numbers_checkbox.button_pressed = DamageNumberPool.numbers_enabled
 	else:
 		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 		_set_animation_players_process_mode(PROCESS_MODE_INHERIT)

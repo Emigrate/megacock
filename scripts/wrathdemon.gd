@@ -173,6 +173,10 @@ func take_damage(amount: float) -> void:
 	
 	hp -= int(amount)
 	
+	# ===== ЦИФРЫ УРОНА =====
+	DamageNumberPool.spawn(int(amount), global_position, false, get_instance_id())
+	# =========================
+	
 	# --- 3D-ЗВУК ПОЛУЧЕНИЯ УРОНА ---
 	AudioManager.play_wrathdemon_hit_3d(global_position)
 

@@ -47,6 +47,10 @@ func _find_target() -> void:
 		_target = players[0] as Node3D
 
 
+func get_alive() -> bool:
+	return _alive
+
+
 func _on_animation_finished() -> void:
 	if _animated_sprite == null:
 		return
@@ -121,6 +125,8 @@ func _physics_process(delta: float) -> void:
 func take_damage(amount: float) -> void:
 	if not _alive:
 		return
+	if not is_inside_tree():
+		return
 	
 	# ===== ВИЗУАЛЬНЫЙ ХИТМАРКЕР =====
 	var crosshairs = get_tree().get_nodes_in_group("crosshair")
@@ -134,6 +140,10 @@ func take_damage(amount: float) -> void:
 	AudioManager.play_hitmarker()
 	
 	hp -= int(amount)
+	
+	# ===== ЦИФРЫ УРОНА (через пул) =====
+	DamageNumberPool.spawn(int(amount), global_position, false, get_instance_id())
+	# ===================================
 	
 	if hp <= 0:
 		_alive = false

@@ -10,7 +10,7 @@ const GROUND_Y := 0.5
 @export var max_spawn_distance := 100.0
 
 # --- НАСТРОЙКИ ДОПОЛНИТЕЛЬНОГО СПАВНА ---
-@export var extra_spawn_interval := 1.0  # каждые 1 секунду (было 10, но ты поставил 1)
+@export var extra_spawn_interval := 1.0  # каждые 1 секунду
 
 var _mobs: Array = []
 var _fireballs: Array = []          # список активных фаерболов
@@ -22,6 +22,21 @@ var _spawn_counter: int = 0
 # Переменные для дополнительного спавна
 var _time_elapsed: float = 0.0
 var _last_extra_spawn_time: float = 0.0
+
+# ============================================================
+# ПРОСТРАНСТВЕННАЯ ХЭШ-СЕТКА (для дешёвого поиска соседей)
+# ------------------------------------------------------------
+# Нужна, чтобы мобы могли "мягко" расталкиваться друг от друга
+# БЕЗ включённых физических коллизий между собой (это дорого при
+# большой плотности толпы — физический солвер считает контакты,
+# трение и т.д. для каждой пары; сетка даёт то же визуальное
+# разделение почти бесплатно).
+# ============================================================
+@export var grid_cell_size: float = 3.0
+@export var grid_rebuild_interval: float = 0.1  # пересобирать сетку 10 раз/сек, а не каждый кадр
+
+var _grid: Dictionary = {}
+var _grid_rebuild_timer: float = 0.0
 
 
 func _ready() -> void:
@@ -40,12 +55,20 @@ func _process(delta: float) -> void:
 		_find_player()
 		return
 	_time_elapsed += delta
-	
+
 	# Дополнительный спавн каждые extra_spawn_interval секунд
 	if _time_elapsed - _last_extra_spawn_time >= extra_spawn_interval:
 		_last_extra_spawn_time = _time_elapsed
 		if _mobs.size() < MAX_MOBS:
 			_spawn_random_mob_extra()
+
+	# Пересборка сетки — не каждый кадр, раз в grid_rebuild_interval.
+	# Сетке не нужна идеальная свежесть каждый физ-тик, мобы не
+	# телепортируются между кадрами.
+	_grid_rebuild_timer -= delta
+	if _grid_rebuild_timer <= 0.0:
+		_grid_rebuild_timer = grid_rebuild_interval
+		_rebuild_spatial_grid()
 
 
 func _on_spawn_tick() -> void:
@@ -110,7 +133,6 @@ func _spawn_sceleton() -> void:
 
 
 func _spawn_random_mob_extra() -> void:
-	# Спавн одного случайного моба (для дополнительного таймера)
 	var roll = randf()
 	if roll < 0.5:
 		_spawn_ghoul()
@@ -185,7 +207,12 @@ func unregister_fireball(fb: Node3D) -> void:
 		_fireballs.erase(fb)
 
 
-# ===== НОВАЯ ФУНКЦИЯ ДЛЯ АВТО-ШОТА =====
+func get_mobs() -> Array:
+	return _mobs
+
+func get_fireballs() -> Array:
+	return _fireballs
+
 func get_nearby_fireballs(origin: Vector3, radius: float) -> Array[Node3D]:
 	var result: Array[Node3D] = []
 	for fb in _fireballs:
@@ -193,10 +220,8 @@ func get_nearby_fireballs(origin: Vector3, radius: float) -> Array[Node3D]:
 			if fb.global_position.distance_to(origin) <= radius:
 				result.append(fb)
 	return result
-# ============================================================
 
 
-# --- ПРОВЕРКА ПОПАДАНИЯ В ФАЕРБОЛЫ ---
 func damage_fireball_ray(origin: Vector3, dir: Vector3, max_range: float, damage: float) -> bool:
 	var best_dist: float = max_range
 	var best_fb = null
@@ -219,7 +244,6 @@ func damage_fireball_ray(origin: Vector3, dir: Vector3, max_range: float, damage
 	return false
 
 
-# --- ОСТАЛЬНЫЕ МЕТОДЫ ---
 func get_hit_position(origin: Vector3, dir: Vector3, max_range: float) -> Vector3:
 	var best_dist: float = max_range
 	var best_pos: Vector3 = Vector3.ZERO
@@ -308,3 +332,54 @@ func melee_splash(origin: Vector3, attack_range: float, damage: int) -> int:
 				mob.take_damage(damage)
 				hit_count += 1
 	return hit_count
+
+
+# ============================================================
+# ПРОСТРАНСТВЕННАЯ СЕТКА — ПУБЛИЧНОЕ API ДЛЯ МОБОВ
+# ============================================================
+func _cell_key(pos: Vector3) -> Vector2i:
+	return Vector2i(floori(pos.x / grid_cell_size), floori(pos.z / grid_cell_size))
+
+
+func _rebuild_spatial_grid() -> void:
+	_grid.clear()
+	for mob in _mobs:
+		if not is_instance_valid(mob):
+			continue
+		var key := _cell_key(mob.global_position)
+		if not _grid.has(key):
+			_grid[key] = []
+		_grid[key].append(mob)
+
+
+## Мобы вызывают это в _physics_process, чтобы получить список
+## соседей из ближайших ячеек (дёшево, без перебора всех _mobs).
+func get_nearby_mobs(pos: Vector3) -> Array:
+	var result: Array = []
+	var center_key := _cell_key(pos)
+	for dx in range(-1, 2):
+		for dz in range(-1, 2):
+			var key := center_key + Vector2i(dx, dz)
+			if _grid.has(key):
+				result.append_array(_grid[key])
+	return result
+
+
+## Вектор "оттолкнись от соседей" — дешёвая замена физической
+## коллизии моб-моб. desired_gap — минимальная желаемая дистанция
+## между центрами мобов.
+func get_separation_push(mob: Node3D, mobs_nearby: Array, desired_gap: float = 1.2) -> Vector3:
+	var push := Vector3.ZERO
+	var count := 0
+	for other in mobs_nearby:
+		if other == mob or not is_instance_valid(other):
+			continue
+		var to_self: Vector3 = mob.global_position - other.global_position
+		to_self.y = 0.0
+		var dist := to_self.length()
+		if dist < desired_gap and dist > 0.001:
+			push += to_self.normalized() * (desired_gap - dist)
+			count += 1
+	if count > 0:
+		push /= count
+	return push

@@ -1,0 +1,8 @@
+[gd_scene format=3 uid="uid://cthsn015l0ico"]
+
+[ext_resource type="Script" uid="uid://cdu2wsgsffb8r" path="res://scripts/damage_number.gd" id="1_c4xn8"]
+
+[node name="Label3D" type="Label3D" unique_id=2012696525]
+font_size = 106
+outline_size = 3
+script = ExtResource("1_c4xn8")
