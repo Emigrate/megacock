@@ -28,7 +28,7 @@ func _ready():
 
 	# Загрузка текстуры
 	if hitmarker_texture == null:
-		var path = "res://assets/textures/hitmarker.png"
+		var path = "res://assets/textures/player/hitmarker.png"
 		if ResourceLoader.exists(path):
 			hitmarker_texture = load(path)
 			print("✅ Хитмаркер загружен из: ", path)

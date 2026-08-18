@@ -1,11 +1,93 @@
 [gd_scene format=3 uid="uid://7crggkcg8lau"]
 
 [ext_resource type="Script" uid="uid://bqm5lnbhsa8oj" path="res://scripts/ghoul.gd" id="1_jdvld"]
-[ext_resource type="SpriteFrames" uid="uid://dl5erqe0mgo3i" path="res://assets/hydralisk_frames.tres" id="2_v81jn"]
+[ext_resource type="Texture2D" uid="uid://dxpm8aylbkhb3" path="res://assets/textures/ghoul/ghoul_walking1.png" id="2_dh0pq"]
+[ext_resource type="Texture2D" uid="uid://c42lj832h5mxq" path="res://assets/textures/ghoul/ghoul_attack1.png" id="2_eqja7"]
+[ext_resource type="Texture2D" uid="uid://d305okar2notg" path="res://assets/textures/ghoul/ghoul_walking2.png" id="3_k51aw"]
+[ext_resource type="Texture2D" uid="uid://b4n12lifpbuq1" path="res://assets/textures/ghoul/ghoul_attack2.png" id="3_mptib"]
+[ext_resource type="Texture2D" uid="uid://bm3v6a24qqnmg" path="res://assets/textures/ghoul/ghoul_attack3.png" id="4_w5vec"]
+[ext_resource type="Texture2D" uid="uid://wvi1vd2lwo2a" path="res://assets/textures/ghoul/ghoul_death1.png" id="5_ic2aq"]
+[ext_resource type="Texture2D" uid="uid://bbq11hkx38th3" path="res://assets/textures/ghoul/ghoul_death2.png" id="6_x8acq"]
+[ext_resource type="Texture2D" uid="uid://c614k8uxxaw4h" path="res://assets/textures/ghoul/ghoul_death3.png" id="7_padts"]
+[ext_resource type="Texture2D" uid="uid://yflhgpqwldpi" path="res://assets/textures/ghoul/ghoul_death4.png" id="8_yohea"]
+[ext_resource type="Texture2D" uid="uid://ch5r078fkrr88" path="res://assets/textures/ghoul/ghoul_death5.png" id="9_40288"]
+[ext_resource type="Texture2D" uid="uid://cmij4wwa3mvt" path="res://assets/textures/ghoul/ghoul_death6.png" id="10_48jt8"]
+[ext_resource type="Texture2D" uid="uid://b7ftyolcehtuy" path="res://assets/textures/ghoul/ghoul_death7.png" id="11_7as1v"]
+[ext_resource type="Texture2D" uid="uid://bmunnuy8vt1rs" path="res://assets/textures/ghoul/ghoul_death8.png" id="12_aa627"]
+[ext_resource type="Texture2D" uid="uid://ddteun6gp336u" path="res://assets/textures/ghoul/ghoul_hit1.png" id="13_padts"]
+[ext_resource type="Texture2D" uid="uid://lhreh60cipvy" path="res://assets/textures/ghoul/ghoul_hit.png" id="14_yohea"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_pdbff"]
 radius = 0.80908203
 height = 3.2114868
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_6eius"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("2_eqja7")
+}, {
+"duration": 1.0,
+"texture": ExtResource("3_mptib")
+}, {
+"duration": 1.0,
+"texture": ExtResource("4_w5vec")
+}],
+"loop": 1,
+"name": &"attack",
+"speed": 6.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("5_ic2aq")
+}, {
+"duration": 1.0,
+"texture": ExtResource("6_x8acq")
+}, {
+"duration": 1.0,
+"texture": ExtResource("7_padts")
+}, {
+"duration": 1.0,
+"texture": ExtResource("8_yohea")
+}, {
+"duration": 1.0,
+"texture": ExtResource("9_40288")
+}, {
+"duration": 1.0,
+"texture": ExtResource("10_48jt8")
+}, {
+"duration": 1.0,
+"texture": ExtResource("11_7as1v")
+}, {
+"duration": 1.0,
+"texture": ExtResource("12_aa627")
+}],
+"loop": 1,
+"name": &"death",
+"speed": 8.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("13_padts")
+}, {
+"duration": 1.0,
+"texture": ExtResource("14_yohea")
+}],
+"loop": 1,
+"name": &"hit",
+"speed": 10.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("2_dh0pq")
+}, {
+"duration": 1.0,
+"texture": ExtResource("3_k51aw")
+}],
+"loop": 1,
+"name": &"walk",
+"speed": 6.0
+}]
 
 [node name="Ghoul" type="Node3D" unique_id=859663965]
 transform = Transform3D(1.315, 0, 0, 0, 1.315, 0, 0, 0, 1.315, 0, 0, 0)
@@ -20,6 +102,6 @@ shape = SubResource("CapsuleShape3D_pdbff")
 [node name="AnimatedSprite3D" type="AnimatedSprite3D" parent="CharacterBody3D" unique_id=1369016391]
 pixel_size = 0.05
 billboard = 1
-sprite_frames = ExtResource("2_v81jn")
-animation = &"death"
-frame_progress = 0.29195035
+sprite_frames = SubResource("SpriteFrames_6eius")
+animation = &"hit"
+frame_progress = 0.3573246

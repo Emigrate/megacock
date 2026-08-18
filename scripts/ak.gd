@@ -12,13 +12,13 @@ const FLASH_SCRIPT := preload("res://scripts/muzzle_flash.gd")
 @export var is_auto := true
 
 # --- НАСТРОЙКИ МАЗЛА ---
-@export var muzzle_offset := Vector3(1, -0.1, -4)
+@export var muzzle_offset := Vector3(0.3,-0.5, -4)
 @export var flash_scale := 1
 @export var flash_start_size := 0.20
 @export var flash_end_size := 0.03
 
 # --- НАСТРОЙКА ТРЕЙСЕРА ---
-@export var tracer_offset := Vector3(1, -0.65, -4)
+@export var tracer_offset := Vector3(1, -1.3, -4)
 
 # --- НАСТРОЙКИ БОБА ---
 @export var bob_position_scale := 0.2

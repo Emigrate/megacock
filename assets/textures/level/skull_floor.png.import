@@ -2,8 +2,8 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bcuy707wtc5nu"
-path.s3tc="res://.godot/imported/exp_orb.png-9023e5202a748138d3776bdeb9e4f701.s3tc.ctex"
+uid="uid://bor2vkoedljl8"
+path.s3tc="res://.godot/imported/skull_floor.png-bab25d559bd3f87ffba8ab266f14d95a.s3tc.ctex"
 metadata={
 "imported_formats": ["s3tc_bptc"],
 "vram_texture": true
@@ -11,8 +11,8 @@ metadata={
 
 [deps]
 
-source_file="res://assets/textures/exp_orb.png"
-dest_files=["res://.godot/imported/exp_orb.png-9023e5202a748138d3776bdeb9e4f701.s3tc.ctex"]
+source_file="res://assets/textures/level/skull_floor.png"
+dest_files=["res://.godot/imported/skull_floor.png-bab25d559bd3f87ffba8ab266f14d95a.s3tc.ctex"]
 
 [params]
 

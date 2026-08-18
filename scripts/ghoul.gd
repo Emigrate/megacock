@@ -1,7 +1,7 @@
 extends CharacterBody3D
 
 # --- НАСТРОЙКИ ---
-@export var speed := 4.0
+@export var speed := 13.0
 @export var hp := 50
 @export var damage := 10.0
 @export var attack_cooldown := 0.8

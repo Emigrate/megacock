@@ -78,7 +78,7 @@ animations = [{
 }],
 "loop": 1,
 "name": &"walk",
-"speed": 8.0
+"speed": 12.0
 }]
 
 [node name="Skeleton" type="Node3D" unique_id=591510703]
@@ -94,4 +94,5 @@ shape = SubResource("CapsuleShape3D_60rxr")
 [node name="AnimatedSprite3D" type="AnimatedSprite3D" parent="CharacterBody3D" unique_id=1573819263]
 billboard = 1
 sprite_frames = SubResource("SpriteFrames_lxk3t")
-animation = &"attack"
+animation = &"walk"
+frame_progress = 0.7551331

@@ -45,7 +45,7 @@ import/blender/enabled=false
 
 [gui]
 
-theme/default_theme_scale=1.1099999999999999
+theme/default_theme_scale=1.11
 theme/custom_font="uid://71qbvv3rjp7"
 
 [input]
