@@ -87,17 +87,20 @@ func _process(_delta):
 
 	prev_hp = current_hp
 
-	# Таймер забега (ММ:СС) — исправлено деление
+	# Таймер забега (ММ:СС)
 	var elapsed_ms = Time.get_ticks_msec()
-	var seconds = elapsed_ms / 1000.0          # <-- добавили .0, чтобы было деление с плавающей точкой
+	var seconds = elapsed_ms / 1000.0
 	var minutes = int(seconds / 60)
 	var remaining_seconds = int(seconds) % 60
 	time_label.text = "%02d:%02d" % [minutes, remaining_seconds]
 
-	if Engine.has_singleton("SwarmManager"):
-		mob_label.text = "Mobs: " + str(SwarmManager.get_count())
+	# ===== ИСПРАВЛЕННЫЙ ДОСТУП К SWARMMANAGER =====
+	var sm = get_tree().root.get_node_or_null("SwarmManager")
+	if sm:
+		mob_label.text = "Mobs: " + str(sm.get_count())
 	else:
 		mob_label.text = "Mobs: 0"
+	# ===============================================
 
 func _trigger_flash():
 	print("🔥 _trigger_flash() ВЫЗВАН")

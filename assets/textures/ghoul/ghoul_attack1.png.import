@@ -3,20 +3,19 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://c42lj832h5mxq"
-path.s3tc="res://.godot/imported/ghoul_attack1.png-258e3e6e7f3b22e5d9d59a0c2bf75316.s3tc.ctex"
+path="res://.godot/imported/ghoul_attack1.png-258e3e6e7f3b22e5d9d59a0c2bf75316.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
-"vram_texture": true
+"vram_texture": false
 }
 
 [deps]
 
 source_file="res://assets/textures/ghoul/ghoul_attack1.png"
-dest_files=["res://.godot/imported/ghoul_attack1.png-258e3e6e7f3b22e5d9d59a0c2bf75316.s3tc.ctex"]
+dest_files=["res://.godot/imported/ghoul_attack1.png-258e3e6e7f3b22e5d9d59a0c2bf75316.ctex"]
 
 [params]
 
-compress/mode=2
+compress/mode=0
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

@@ -4,7 +4,7 @@ const TRACER_SCRIPT := preload("res://scripts/tracer.gd")
 const FLASH_SCRIPT := preload("res://scripts/muzzle_flash.gd")
 
 @export var pellet_count := 12
-@export var pellet_damage := 20.0
+@export var pellet_damage := 25.0
 @export var fire_rate := 1
 @export var shoot_range := 100.0
 @export var spread_degrees := 5.0

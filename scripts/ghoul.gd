@@ -1,193 +1,72 @@
-extends CharacterBody3D
+extends Node
+class_name GhoulData
 
-# --- НАСТРОЙКИ ---
-@export var speed := 10
-@export var hp := 100
-@export var damage := 10.0
-@export var attack_cooldown := 0.8
-@export var detection_distance := 3.0
-@export var rotation_speed := 0.2
+const FRAME_PATHS := [
+	"res://assets/textures/ghoul/ghoul_attack1.png",
+	"res://assets/textures/ghoul/ghoul_attack2.png",
+	"res://assets/textures/ghoul/ghoul_attack3.png",
+	"res://assets/textures/ghoul/ghoul_death1.png",
+	"res://assets/textures/ghoul/ghoul_death2.png",
+	"res://assets/textures/ghoul/ghoul_death3.png",
+	"res://assets/textures/ghoul/ghoul_death4.png",
+	"res://assets/textures/ghoul/ghoul_death5.png",
+	"res://assets/textures/ghoul/ghoul_death6.png",
+	"res://assets/textures/ghoul/ghoul_death7.png",
+	"res://assets/textures/ghoul/ghoul_death8.png",
+	"res://assets/textures/ghoul/ghoul_hit1.png",
+	"res://assets/textures/ghoul/ghoul_hit.png",
+	"res://assets/textures/ghoul/ghoul_walking1.png",
+	"res://assets/textures/ghoul/ghoul_walking2.png",
+]
 
-# --- НАСТРОЙКИ ДРОПА ЭКСПЫ ---
-@export var exp_drop_min: int = 100
-@export var exp_drop_max: int = 100
-@export var exp_orb_scene: PackedScene
+const ANIM := {
+	"attack": {"start": 0,  "count": 3, "fps": 6.0,  "loop": false},
+	"death":  {"start": 3,  "count": 8, "fps": 8.0,  "loop": false},
+	"hit":    {"start": 11, "count": 2, "fps": 10.0, "loop": false},
+	"walk":   {"start": 13, "count": 2, "fps": 6.0,  "loop": true},
+}
 
-var _target: Node3D
-var _alive := true
-var _animated_sprite: AnimatedSprite3D = null
-var _can_attack := true
+static var _cached_texture: Texture2DArray = null
 
+static var texture_array: Texture2DArray:
+	get:
+		if _cached_texture == null:
+			_cached_texture = _build_texture_array()
+		return _cached_texture
 
-func _ready() -> void:
-	add_to_group("mob")
+static func _build_texture_array() -> Texture2DArray:
+	var images: Array[Image] = []
+	var max_w := 0
+	var max_h := 0
 
-	_find_target()
-	
-	for child in get_children():
-		if child is AnimatedSprite3D:
-			_animated_sprite = child
-			break
+	for path in FRAME_PATHS:
+		var tex = load(path) as Texture2D
+		if not tex: continue
+		var img = tex.get_image()
+		if img.is_compressed(): img.decompress()
+		img.convert(Image.FORMAT_RGBA8)
+		images.append(img)
+		max_w = max(max_w, img.get_width())
+		max_h = max(max_h, img.get_height())
 
-	if _animated_sprite:
-		if _animated_sprite.sprite_frames.has_animation("hit"):
-			_animated_sprite.sprite_frames.set_animation_loop("hit", false)
-		if _animated_sprite.sprite_frames.has_animation("death"):
-			_animated_sprite.sprite_frames.set_animation_loop("death", false)
-		if _animated_sprite.sprite_frames.has_animation("attack"):
-			_animated_sprite.sprite_frames.set_animation_loop("attack", false)
-		
-		_animated_sprite.play("walk")
-		_animated_sprite.animation_finished.connect(_on_animation_finished)
+	var normalized_images: Array[Image] = []
+	for img in images:
+		var canvas = Image.create(max_w, max_h, false, Image.FORMAT_RGBA8)
+		var offset_x = (max_w - img.get_width()) / 2
+		var offset_y = max_h - img.get_height() # Прижимаем к низу
+		canvas.blit_rect(img, Rect2i(Vector2i.ZERO, img.get_size()), Vector2i(offset_x, offset_y))
+		normalized_images.append(canvas)
 
+	var tex_array = Texture2DArray.new()
+	tex_array.create_from_images(normalized_images)
+	return tex_array
 
-func _find_target() -> void:
-	var players: Array = get_tree().get_nodes_in_group("player")
-	if players.size() > 0:
-		_target = players[0] as Node3D
+static func frame_for(anim_name: String, timer: float) -> int:
+	var a = ANIM[anim_name]
+	var idx = int(timer * a.fps)
+	if a.loop: idx = idx % a.count
+	else: idx = min(idx, a.count - 1)
+	return a.start + idx
 
-
-func get_alive() -> bool:
-	return _alive
-
-
-func _on_animation_finished() -> void:
-	if _animated_sprite == null:
-		return
-	
-	if not _alive:
-		if _animated_sprite.animation == "death":
-			queue_free()
-		return
-	
-	var current_anim: String = _animated_sprite.animation
-	
-	if current_anim == "hit":
-		_animated_sprite.modulate = Color(1, 1, 1, 1)
-		_animated_sprite.play("walk")
-	
-	if current_anim == "attack":
-		_animated_sprite.play("walk")
-		_can_attack = true
-
-
-func _physics_process(delta: float) -> void:
-	if not _alive:
-		return
-	
-	if _target == null:
-		_find_target()
-		if _target == null:
-			return
-
-	var dir: Vector3 = (_target.global_position - global_position).normalized()
-	var dist: float = global_position.distance_to(_target.global_position)
-
-	# --- ДВИЖЕНИЕ ---
-	if dist > detection_distance * 0.7:
-		velocity.x = dir.x * speed
-		velocity.z = dir.z * speed
-	else:
-		velocity.x = 0.0
-		velocity.z = 0.0
-
-	if not is_on_floor():
-		velocity.y -= 20.0 * delta
-	else:
-		velocity.y = 0.0
-
-	move_and_slide()
-
-	# --- ПОВОРОТ ---
-	if dist > 0.3:
-		var target_angle: float = atan2(dir.x, dir.z)
-		rotation.y = lerp_angle(rotation.y, target_angle, rotation_speed)
-
-	# --- АНИМАЦИИ ---
-	if _animated_sprite and _alive:
-		var anim: String = _animated_sprite.animation
-		if anim in ["hit", "death"]:
-			return
-		if anim == "attack":
-			return
-		if dist < detection_distance and _can_attack:
-			_animated_sprite.play("attack")
-			_can_attack = false
-			# --- 3D-ЗВУК АТАКИ ---
-			AudioManager.play_ghoul_swing_3d(global_position)
-			if _target.has_method("take_damage"):
-				_target.take_damage(damage)
-		else:
-			if _animated_sprite.animation != "walk":
-				_animated_sprite.play("walk")
-
-
-func take_damage(amount: float) -> void:
-	if not _alive:
-		return
-	if not is_inside_tree():
-		return
-	
-	# ===== ВИЗУАЛЬНЫЙ ХИТМАРКЕР =====
-	var crosshairs = get_tree().get_nodes_in_group("crosshair")
-	if crosshairs.size() > 0:
-		crosshairs[0].show_hitmarker()
-	else:
-		print("⚠️ Crosshair не найден в группе 'crosshair'")
-	# ===================================
-	
-	# --- ЗВУКОВОЙ ХИТМАРКЕР ---
-	AudioManager.play_hitmarker()
-	
-	hp -= int(amount)
-	
-	# ===== ЦИФРЫ УРОНА (через пул) =====
-	DamageNumberPool.spawn(int(amount), global_position, false, get_instance_id())
-	# ===================================
-	
-	if hp <= 0:
-		_alive = false
-		_die()
-		return
-
-	# --- 3D-ЗВУК ПОЛУЧЕНИЯ УРОНА ---
-	AudioManager.play_ghoul_hit_3d(global_position)
-	if _animated_sprite and _animated_sprite.animation != "death":
-		_animated_sprite.modulate = Color.WHITE
-		if _animated_sprite.sprite_frames.has_animation("hit"):
-			_animated_sprite.play("hit")
-
-
-func _die() -> void:
-	# --- 3D-ЗВУК СМЕРТИ ---
-	AudioManager.play_ghoul_death_3d(global_position)
-	
-	# --- ВЫЗЫВАЕМ ДРОП ЭКСПЫ ---
-	_drop_exp()
-	
-	set_physics_process(false)
-	collision_layer = 0
-	collision_mask = 0
-
-	if _animated_sprite:
-		_animated_sprite.play("death")
-	else:
-		queue_free()
-
-
-# --- ФУНКЦИЯ ДРОПА ЭКСПЫ ---
-func _drop_exp() -> void:
-	if exp_orb_scene == null:
-		var default_path = "res://scenes/entity/exp_orb.tscn"
-		if ResourceLoader.exists(default_path):
-			exp_orb_scene = load(default_path)
-		else:
-			print("Ошибка: Не найдена сцена exp_orb.tscn по пути ", default_path)
-			return
-
-	var orb = exp_orb_scene.instantiate()
-	orb.exp_amount = randi_range(exp_drop_min, exp_drop_max)
-	
-	orb.position = global_position + Vector3(0, 0.3, 0)
-	
-	get_tree().current_scene.add_child(orb)
+static func anim_duration(anim_name: String) -> float:
+	return ANIM[anim_name].count / ANIM[anim_name].fps

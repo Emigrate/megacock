@@ -1,11 +1,14 @@
 [gd_scene format=3 uid="uid://c6xveif43b3gj"]
 
+[ext_resource type="Script" uid="uid://c4pwfwcxasje" path="res://scripts/main.gd" id="1_85g3d"]
 [ext_resource type="Script" uid="uid://bu4wtu6f5vqeg" path="res://scripts/player.gd" id="1_tbgi4"]
 [ext_resource type="Script" uid="uid://dchdrvikubmwr" path="res://scripts/crosshair.gd" id="4_jyhfs"]
 [ext_resource type="Texture2D" uid="uid://bor2vkoedljl8" path="res://assets/textures/level/skull_floor.png" id="4_tbgi4"]
 [ext_resource type="Texture2D" uid="uid://c08ppkjy7d4h3" path="res://assets/textures/level/block2.png" id="4_tefeu"]
 [ext_resource type="Texture2D" uid="uid://kb1n4ikibq8w" path="res://assets/textures/player/hitmarker.png" id="5_tbgi4"]
 [ext_resource type="Texture2D" uid="uid://coyj10lu0lrpm" path="res://assets/textures/level/meat_floor.png" id="5_tefeu"]
+[ext_resource type="Script" uid="uid://b62kw7ul2ce6b" path="res://scripts/ghoul_swarm.gd" id="7_o6xl0"]
+[ext_resource type="Script" uid="uid://btjnjrt0wu5hj" path="res://scripts/mob_spawn.gd" id="8_tipki"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_fqhjb"]
 
@@ -36,6 +39,7 @@ uv1_triplanar = true
 uv1_world_triplanar = true
 
 [node name="MainWorld" type="Node3D" unique_id=193080292]
+script = ExtResource("1_85g3d")
 
 [node name="Player" type="Node3D" parent="." unique_id=1964860585]
 
@@ -110,3 +114,9 @@ transform = Transform3D(-4.371139e-08, -1, 0, 1, -4.371139e-08, 0, 0, 0, 1, 501.
 use_collision = true
 size = Vector3(1000, 1, 2000)
 material = SubResource("StandardMaterial3D_lxk3t")
+
+[node name="GhoulSwarm" type="Node3D" parent="." unique_id=27463479]
+script = ExtResource("7_o6xl0")
+
+[node name="MobSpawn" type="Node3D" parent="." unique_id=335504569]
+script = ExtResource("8_tipki")

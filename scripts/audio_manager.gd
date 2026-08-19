@@ -88,8 +88,8 @@ const HITMARKER_SOUND := "res://assets/audio/hitmarker.ogg"
 
 # --- ГРОМКОСТЬ МОБОВ (шина Mobs, кроме смерти) ---
 @export var ghoul_spawn_volume_db: float = -5.0
-@export var ghoul_hit_volume_db: float = -5.0
-@export var ghoul_swing_volume_db: float = -15.0
+@export var ghoul_hit_volume_db: float = -35.0
+@export var ghoul_swing_volume_db: float = -35.0
 
 @export var wrathdemon_spawn_volume_db: float = -5.0
 @export var wrathdemon_hit_volume_db: float = 5.0
