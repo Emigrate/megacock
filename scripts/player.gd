@@ -85,7 +85,7 @@ var _auto_shot_timer: float = 0.0
 @export var auto_shot_min_interval: float = 0.1
 var auto_shot_interval_current: float = 1.0
 
-# --- НАСТРОЙКИ АВТО-ВЫСТРЕЛА (вынесено из магических чисел) ---
+# --- НАСТРОЙКИ АВТО-ВЫСТРЕЛА ---
 @export var auto_shot_search_radius: float = 30.0
 @export var auto_shot_front_dot_threshold: float = 0.3
 @export var auto_shot_bullet_speed: float = 100.0
@@ -93,12 +93,9 @@ var auto_shot_interval_current: float = 1.0
 @export var auto_shot_chain_offset: float = 0.3
 @export var auto_shot_burst_stagger: float = 0.1
 
-# защита от гонки: не запускать новую серию, пока предыдущая не долетела
 var _is_auto_shooting := false
 
-# --- ТРАССЕР ДЛЯ АВТО-ВЫСТРЕЛА ---
 const TRACER_SCRIPT := preload("res://scripts/tracer.gd")
-
 
 func _ready() -> void:
 	process_mode = PROCESS_MODE_ALWAYS
@@ -305,7 +302,7 @@ func _create_pause_ui() -> void:
 
 
 func _on_damage_numbers_toggled(pressed: bool) -> void:
-	print("🟡 Чекбокс нажат! pressed = ", pressed)  # ОТЛАДКА
+	print("🟡 Чекбокс нажат! pressed = ", pressed)
 	DamageNumberPool.set_numbers_enabled(pressed)
 
 
@@ -638,7 +635,6 @@ func take_damage(amount: float) -> void:
 		print("💀 Игрок умер, респавн")
 	else:
 		AudioManager.play_player_hurt_3d(global_position)
-		print("💔 Игрок получил урон! HP: ", hp)
 
 
 func spawn_enemy_at_crosshair() -> void:
@@ -656,69 +652,76 @@ func spawn_enemy_random() -> void:
 
 # ===== АВТО-ВЫСТРЕЛ =====
 
-# Единая точка поиска цели: сначала ближайший фаербол в радиусе,
-# иначе враг по камере (приоритет тем, что спереди), с возможностью
-# исключить уже "убитых"/невалидных кандидатов через exclude
-func _find_auto_shot_target(exclude: Array = []) -> Node3D:
+# Единая точка поиска цели: использует SwarmManager для получения всех позиций мобов
+func _find_auto_shot_target(exclude: Array = []) -> Vector3:
+	# Сначала проверим фаерболы (если они есть)
 	var fireballs = SwarmManager.get_nearby_fireballs(global_position, auto_shot_search_radius)
-	var closest_fb: Node3D = null
 	var closest_fb_dist := INF
+	var closest_fb_pos := Vector3.ZERO
 	for fb in fireballs:
 		if fb in exclude or not is_instance_valid(fb):
 			continue
 		var d = global_position.distance_to(fb.global_position)
 		if d < closest_fb_dist:
 			closest_fb_dist = d
-			closest_fb = fb
+			closest_fb_pos = fb.global_position
 
-	if closest_fb:
-		return closest_fb
+	if closest_fb_pos != Vector3.ZERO:
+		return closest_fb_pos
 
-	# фаерболов нет (или все исключены) — ищем врага по камере
+	# Фаерболов нет — ищем врага через SwarmManager
+	var all_positions := SwarmManager.get_all_mob_positions()
+	if all_positions.is_empty():
+		return Vector3.ZERO
+
+	# Отсеиваем уже поражённые (по приблизительной дистанции)
+	var filtered: Array = []
+	for pos in all_positions:
+		var skip := false
+		for ex in exclude:
+			if ex is Vector3 and pos.distance_to(ex) < 0.5:
+				skip = true
+				break
+		if not skip:
+			filtered.append(pos)
+
+	if filtered.is_empty():
+		return Vector3.ZERO
+
 	var cam_dir = -camera.global_transform.basis.z
 	var cam_pos = camera.global_position
 
-	var alive_enemies: Array = []
-	for enemy in get_tree().get_nodes_in_group("mob"):
-		if not is_instance_valid(enemy) or enemy in exclude:
-			continue
-		if enemy.has_method("get_alive") and not enemy.get_alive():
-			continue
-		alive_enemies.append(enemy)
-
-	if alive_enemies.is_empty():
-		return null
-
-	var front_enemies: Array = []
-	var back_enemies: Array = []
-	for enemy in alive_enemies:
-		var dir_to_enemy = (enemy.global_position - cam_pos).normalized()
+	var front: Array = []
+	var back: Array = []
+	for pos in filtered:
+		var dir_to_enemy = (pos - cam_pos).normalized()
 		var dot = dir_to_enemy.dot(cam_dir)
 		if dot > auto_shot_front_dot_threshold:
-			front_enemies.append(enemy)
+			front.append(pos)
 		else:
-			back_enemies.append(enemy)
+			back.append(pos)
 
-	if not front_enemies.is_empty():
+	if not front.is_empty():
 		var best_angle := INF
-		var best: Node3D = null
-		for enemy in front_enemies:
-			var dir_to_enemy = (enemy.global_position - cam_pos).normalized()
+		var best_pos := Vector3.ZERO
+		for pos in front:
+			var dir_to_enemy = (pos - cam_pos).normalized()
 			var angle = dir_to_enemy.angle_to(cam_dir)
 			if angle < best_angle:
 				best_angle = angle
-				best = enemy
-		return best
+				best_pos = pos
+		return best_pos
 
-	return alive_enemies[randi() % alive_enemies.size()]
+	# Если никого спереди — берём случайного из оставшихся
+	return back[randi() % back.size()] if not back.is_empty() else Vector3.ZERO
 
 
 func _perform_auto_shot():
 	if _is_auto_shooting:
 		return
 
-	var target := _find_auto_shot_target()
-	if target == null:
+	var target_pos := _find_auto_shot_target()
+	if target_pos == Vector3.ZERO:
 		return
 
 	_is_auto_shooting = true
@@ -727,84 +730,80 @@ func _perform_auto_shot():
 		if i > 0:
 			await get_tree().create_timer(auto_shot_burst_stagger * i).timeout
 
-		if not is_instance_valid(target) or (target.has_method("get_alive") and not target.get_alive()):
-			target = _find_auto_shot_target()
-			if target == null:
-				break
+		# Если цель невалидна или уже убита — ищем новую
+		var new_target := _find_auto_shot_target([target_pos])
+		if new_target != Vector3.ZERO:
+			target_pos = new_target
+		else:
+			break
 
-		_fire_auto_bullet(target.global_position, target)
+		_fire_auto_bullet(target_pos)
 
 	_is_auto_shooting = false
 
 
-func _fire_auto_bullet(target_pos: Vector3, target: Node3D = null):
+func _fire_auto_bullet(target_pos: Vector3):
 	var origin = global_position
-
-	# Упреждение: предсказываем позицию цели через время полёта
-	var predicted_pos = target_pos
-	if target:
-		var target_velocity = Vector3.ZERO
-		if target.has_method("get_velocity"):
-			target_velocity = target.velocity
-		elif "velocity" in target:
-			target_velocity = target.velocity
-		var dist = origin.distance_to(target_pos)
-		var time_to_target = dist / auto_shot_bullet_speed
-		predicted_pos = target_pos + target_velocity * time_to_target
-
-	var dir = (predicted_pos - origin).normalized()
-
-	var space_state = get_world_3d().direct_space_state
-	var current_pos = origin
-	var current_dir = dir
-	var current_target = current_pos + current_dir * auto_shot_range
-
+	var dir = (target_pos - origin).normalized()
 	var max_chains = chain_count
 	var chance = 0.5 + 0.1 * (max_chains - 1) if max_chains > 0 else 0.0
 	var hits = max(1, max_chains + 1)
 
-	var already_hit: Array = []
+	var current_pos = origin
+	var current_dir = dir
+	var already_hit: Array = []  # позиции уже поражённых целей
+
+	if not SwarmManager:
+		push_error("AutoShot: SwarmManager не найден!")
+		return
 
 	for i in range(hits):
-		var query = PhysicsRayQueryParameters3D.create(current_pos, current_target)
-		query.exclude = [self.get_rid()]
-		var hit = space_state.intersect_ray(query)
+		# Атомарный вызов: damage_ray_with_hit
+		var result = SwarmManager.damage_ray_with_hit(current_pos, current_dir, auto_shot_range, auto_shot_damage)
+		var hit: bool = result[0]
+		var hit_pos: Vector3 = result[1]
 
-		if not hit.is_empty():
-			var c = hit.collider
-			var hit_pos = hit.position
-
+		if hit:
+			if hit_pos == Vector3.ZERO:
+				hit_pos = current_pos + current_dir * auto_shot_range * 0.5
 			spawn_tracer(current_pos, hit_pos)
-
-			if c != null and c.has_method("take_damage"):
-				c.take_damage(auto_shot_damage)
-				already_hit.append(c)
-
-			if i == hits - 1:
-				break
-
-			if i >= 1 and randf() >= chance:
-				break
-
-			var enemies = get_tree().get_nodes_in_group("mob")
-			var closest_dist = INF
-			var closest_enemy = null
-			for enemy in enemies:
-				if not is_instance_valid(enemy) or enemy in already_hit:
-					continue
-				var d = hit_pos.distance_to(enemy.global_position)
-				if d < closest_dist:
-					closest_dist = d
-					closest_enemy = enemy
-
-			if closest_enemy:
-				current_dir = (closest_enemy.global_position - hit_pos).normalized()
-				current_pos = hit_pos + current_dir * auto_shot_chain_offset
-				current_target = current_pos + current_dir * auto_shot_range
-			else:
-				break
+			already_hit.append(hit_pos)
 		else:
+			var end_pos: Vector3 = current_pos + current_dir * auto_shot_range
+			spawn_tracer(current_pos, end_pos)
 			break
+
+		if i == hits - 1:
+			break
+		if i >= 1 and randf() >= chance:
+			break
+
+		# Ищем следующую цель
+		var all_positions := SwarmManager.get_all_mob_positions()
+		var nearest_dist := INF
+		var nearest_pos := Vector3.ZERO
+		for pos in all_positions:
+			var skip := false
+			for old in already_hit:
+				if old.distance_to(pos) < 0.5:
+					skip = true
+					break
+			if skip:
+				continue
+			var d := hit_pos.distance_to(pos)
+			if d < nearest_dist:
+				nearest_dist = d
+				nearest_pos = pos
+
+		if nearest_pos == Vector3.ZERO:
+			break
+
+		var dir_to_next = nearest_pos - hit_pos
+		dir_to_next.y = 0.0
+		if dir_to_next.length() < 0.001:
+			break
+		current_dir = dir_to_next.normalized()
+		current_pos = hit_pos + current_dir * auto_shot_chain_offset
 
 	AudioManager.play_player_autoshot_2d()
 
@@ -815,8 +814,6 @@ func spawn_tracer(from: Vector3, to: Vector3) -> void:
 	tracer.set("from", from)
 	tracer.set("to", to)
 
-	# предпочитаем явный контейнер через группу, чтобы не зависеть
-	# от глубины иерархии игрока в сцене
 	var world: Node = null
 	var containers = get_tree().get_nodes_in_group("tracer_container")
 	if not containers.is_empty():

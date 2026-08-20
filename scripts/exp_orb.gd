@@ -102,8 +102,7 @@ func _on_landed():
 func _on_body_entered(body):
 	if body.is_in_group("player"):
 		# ПРАВИЛЬНЫЙ ВЫЗОВ: просто по имени, без Engine.has_singleton
-		ExpManager.add_exp(exp_amount)
-		print("💎 Экспа получена: +", exp_amount)  # Для отладки
+		ExpManager.add_exp(exp_amount) 
 		_despawn()
 
 func _despawn():

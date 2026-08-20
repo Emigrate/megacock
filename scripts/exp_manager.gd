@@ -16,13 +16,11 @@ func add_exp(amount: int) -> void:
 		return
 	
 	current_exp += amount
-	print("💎 Экспа получена: +", amount, " | Всего: ", current_exp)
 	
 	while current_exp >= exp_to_next_level:
 		current_exp -= exp_to_next_level
 		level += 1
 		exp_to_next_level = int(exp_to_next_level * EXP_MULTIPLIER)
-		print("🔥 УРОВЕНЬ ПОВЫШЕН! Текущий уровень: ", level)
 		level_up.emit(level)
 		
 		# === ВЫЗОВ МЕНЕДЖЕРА АПГРЕЙДОВ ===

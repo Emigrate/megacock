@@ -6,30 +6,22 @@ const FLASH_SCRIPT := preload("res://scripts/muzzle_flash.gd")
 @export var damage := 30.0
 @export var fire_rate := 8.0
 @export var shoot_range := 120.0
-@export var recoil_amount := 0.10         # Увеличили отдачу
-@export var spread_degrees := 1.8         # Чуть больше разброса
+@export var recoil_amount := 0.10
+@export var spread_degrees := 1.8
 @export var first_shot_reset_time := 0.15
 @export var is_auto := true
 
-# --- НАСТРОЙКИ МАЗЛА (ВЕРНУЛИ БОЛЬШИЕ ЗНАЧЕНИЯ) ---
 @export var muzzle_offset := Vector3(0.4, -0.5, -4.2)
-@export var flash_scale := 1.2
+@export var flash_scale := 0.5
 @export var flash_start_size := 0.35
 @export var flash_end_size := 0.05
-
-# --- НАСТРОЙКА ТРЕЙСЕРА ---
 @export var tracer_offset := Vector3(1.2, -1.3, -4.2)
-
-# --- НАСТРОЙКИ БОБА ---
 @export var bob_position_scale := 0.25
 @export var bob_rotation_scale := 0.2
-
-# --- ИНТЕНСИВНОСТЬ ОТДАЧИ И FOV-ШЕЙКА ---
 @export var camera_shake_intensity := 0.5
 
 var can_fire := true
 var _model: Node3D
-
 var _bob_x := 0.0
 var _bob_y := 0.0
 var _bob_moving := false
@@ -38,7 +30,6 @@ var _lean_cur := 0.0
 var _recoil_back := 0.0
 var _recoil_pitch := 0.0
 var _time_since_shot := 999.0
-
 
 func _ready() -> void:
 	for child in get_children():
@@ -50,26 +41,20 @@ func _ready() -> void:
 		_model.name = "AK_Model"
 		add_child(_model)
 
-
 func set_bob(bob_x: float, bob_y: float, moving: bool) -> void:
 	_bob_x = bob_x
 	_bob_y = bob_y
 	_bob_moving = moving
 
-
 func set_yaw_input(yaw: float) -> void:
 	_yaw_input = yaw
 
-
 func _process(delta: float) -> void:
 	_time_since_shot += delta
-
 	var damp := 1.0 - exp(-10.0 * delta)
 	_recoil_back = lerpf(_recoil_back, 0.0, damp)
 	_recoil_pitch = lerpf(_recoil_pitch, 0.0, damp)
-
-	if _model == null:
-		return
+	if _model == null: return
 
 	if not has_meta("_bob_origin"):
 		set_meta("_bob_origin", _model.position)
@@ -91,14 +76,10 @@ func _process(delta: float) -> void:
 	_model.rotation = base_rot + rot_offset
 	_yaw_input = 0.0
 
-
 func try_fire() -> bool:
-	if not can_fire:
-		return false
-
+	if not can_fire: return false
 	can_fire = false
-	get_tree().create_timer(1.0 / fire_rate).timeout.connect(func():
-		can_fire = true)
+	get_tree().create_timer(1.0 / fire_rate).timeout.connect(func(): can_fire = true)
 
 	var cam := get_parent() as Camera3D
 	var origin := cam.global_position
@@ -119,7 +100,6 @@ func try_fire() -> bool:
 	var muzzle_pos := cam.global_position + cam.global_transform.basis * muzzle_offset
 	spawn_flash(muzzle_pos)
 
-	# Отдача и шейк
 	var speed_factor := 0.0
 	if player is CharacterBody3D:
 		var horiz := Vector2(player.velocity.x, player.velocity.z)
@@ -130,7 +110,6 @@ func try_fire() -> bool:
 	_recoil_back = recoil_amount * 4.0 * (1.0 + speed_factor * 0.8)
 	_recoil_pitch = recoil_amount * 2.0 * (1.0 + speed_factor * 0.5)
 
-	# Динамический разброс при беге
 	if speed_factor > 0.3:
 		spread_degrees = 1.8 + speed_factor * 2.0
 	else:
@@ -139,8 +118,8 @@ func try_fire() -> bool:
 	AudioManager.play_ak_shot_2d()
 	return true
 
-
-func _fire_chain(origin: Vector3, dir: Vector3, chain_level: int, player: Node, cam: Camera3D) -> void:
+# ========== ИСПРАВЛЕНИЕ: параметр переименован в _player ==========
+func _fire_chain(origin: Vector3, dir: Vector3, chain_level: int, _player: Node, cam: Camera3D) -> void:
 	var max_bounces: int = chain_level
 	var chance: float = 0.5 + 0.1 * (max_bounces - 1)
 	var hits: int = max(1, max_bounces + 1)
@@ -148,7 +127,6 @@ func _fire_chain(origin: Vector3, dir: Vector3, chain_level: int, player: Node, 
 	var current_pos: Vector3 = origin
 	var current_dir: Vector3 = dir
 	var tracer_from: Vector3 = cam.global_position + cam.global_transform.basis * tracer_offset
-
 	var already_hit_positions: Array[Vector3] = []
 
 	if not SwarmManager:
@@ -156,10 +134,12 @@ func _fire_chain(origin: Vector3, dir: Vector3, chain_level: int, player: Node, 
 		return
 
 	for i in range(hits):
-		var hit: bool = SwarmManager.damage_ray(current_pos, current_dir, shoot_range, damage)
-		var hit_pos := Vector3.ZERO
+		# Единый вызов — получаем и попадание, и точку сразу
+		var result = SwarmManager.damage_ray_with_hit(current_pos, current_dir, shoot_range, damage)
+		var hit: bool = result[0]
+		var hit_pos: Vector3 = result[1]
+
 		if hit:
-			hit_pos = SwarmManager.get_hit_position(current_pos, current_dir, shoot_range)
 			if hit_pos == Vector3.ZERO:
 				hit_pos = current_pos + current_dir * shoot_range * 0.5
 			spawn_tracer(tracer_from, hit_pos)
@@ -169,13 +149,11 @@ func _fire_chain(origin: Vector3, dir: Vector3, chain_level: int, player: Node, 
 			spawn_tracer(tracer_from, end_pos)
 			break
 
-		if i == hits - 1:
-			break
-		if i >= 1 and randf() >= chance:
-			break
+		if i == hits - 1: break
+		if i >= 1 and randf() >= chance: break
 
-		# Ищем ближайшего врага через SwarmManager
-		var all_positions: Array[Vector3] = SwarmManager.get_all_mob_positions()
+		# Ищем следующую цель
+		var all_positions := SwarmManager.get_all_mob_positions()
 		var nearest_dist := INF
 		var nearest_pos := Vector3.ZERO
 		for pos in all_positions:
@@ -184,37 +162,34 @@ func _fire_chain(origin: Vector3, dir: Vector3, chain_level: int, player: Node, 
 				if old.distance_to(pos) < 0.5:
 					skip = true
 					break
-			if skip:
-				continue
+			if skip: continue
 			var d := hit_pos.distance_to(pos)
 			if d < nearest_dist:
 				nearest_dist = d
 				nearest_pos = pos
 
-		if nearest_pos == Vector3.ZERO:
-			break
+		if nearest_pos == Vector3.ZERO: break
 
-		current_dir = (nearest_pos - hit_pos).normalized()
+		var dir_to_next = nearest_pos - hit_pos
+		dir_to_next.y = 0.0
+		if dir_to_next.length() < 0.001: break
+		current_dir = dir_to_next.normalized()
 		current_pos = hit_pos + current_dir * 0.3
 		tracer_from = hit_pos
-
 
 func spawn_flash(pos: Vector3) -> void:
 	var flash: Node3D = FLASH_SCRIPT.new()
 	flash.start_size = flash_start_size * flash_scale
 	flash.end_size = flash_end_size * flash_scale
 	var world := get_tree().current_scene
-	if world == null:
-		world = get_parent().get_parent().get_parent()
+	if world == null: world = get_parent().get_parent().get_parent()
 	world.add_child(flash)
 	flash.global_position = pos
-
 
 func spawn_tracer(from: Vector3, to: Vector3) -> void:
 	var tracer: Node3D = TRACER_SCRIPT.new()
 	tracer.set("from", from)
 	tracer.set("to", to)
 	var world := get_tree().current_scene
-	if world == null:
-		world = get_parent().get_parent().get_parent()
+	if world == null: world = get_parent().get_parent().get_parent()
 	world.add_child(tracer)

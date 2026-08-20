@@ -50,7 +50,6 @@ var _recoil_back := 0.0
 var _recoil_pitch := 0.0
 var _time_since_shot := 999.0
 
-
 func _ready() -> void:
 	for child in get_children():
 		if child is Node3D:
@@ -62,16 +61,13 @@ func _ready() -> void:
 		add_child(_model)
 	ammo = magazine_size
 
-
 func set_bob(bob_x: float, bob_y: float, moving: bool) -> void:
 	_bob_x = bob_x
 	_bob_y = bob_y
 	_bob_moving = moving
 
-
 func set_yaw_input(yaw: float) -> void:
 	_yaw_input = yaw
-
 
 func _process(delta: float) -> void:
 	_time_since_shot += delta
@@ -103,7 +99,6 @@ func _process(delta: float) -> void:
 	_model.rotation = base_rot + rot_offset
 	_yaw_input = 0.0
 
-
 func _generate_normal_angle(max_angle: float, falloff: float = 1.0) -> float:
 	var r1 = randf_range(-1.0, 1.0)
 	var r2 = randf_range(-1.0, 1.0)
@@ -112,7 +107,6 @@ func _generate_normal_angle(max_angle: float, falloff: float = 1.0) -> float:
 	var sigma = max_angle / 2.0
 	var _scale = sigma / 0.577 / falloff
 	return normal * _scale
-
 
 func try_fire() -> bool:
 	if not can_fire or is_reloading or ammo <= 0:
@@ -129,8 +123,6 @@ func try_fire() -> bool:
 	timer.timeout.connect(_on_fire_cooldown)
 
 	var cam := get_parent() as Camera3D
-	var space_state := cam.get_world_3d().direct_space_state
-
 	var origin := cam.global_position
 	var dir := -cam.global_transform.basis.z
 
@@ -140,6 +132,10 @@ func try_fire() -> bool:
 
 	var hit_positions: Array[Vector3] = []  # собираем все попадания
 
+	if not SwarmManager:
+		push_error("Shotgun: SwarmManager не найден!")
+		return false
+
 	for i in range(pellet_count):
 		var angle_h = _generate_normal_angle(spread_rad, spread_falloff)
 		var angle_v = _generate_normal_angle(spread_rad, spread_falloff)
@@ -148,17 +144,19 @@ func try_fire() -> bool:
 		spread_dir = spread_dir.rotated(cam.global_transform.basis.y, angle_h)
 		spread_dir = spread_dir.rotated(cam.global_transform.basis.x, angle_v)
 
-		var to := origin + spread_dir * shoot_range
-		var hit = space_state.intersect_ray(PhysicsRayQueryParameters3D.create(origin, to))
+		# Выстрел через мультимеш
+		var result = SwarmManager.damage_ray_with_hit(origin, spread_dir, shoot_range, pellet_damage)
+		var hit: bool = result[0]
+		var hit_pos: Vector3 = result[1]
+
 		if hit:
-			var target: Vector3 = hit.position
-			var c: Object = hit.collider
-			if c != null and c.has_method("take_damage"):
-				c.take_damage(pellet_damage)
-			spawn_tracer(tracer_start, target)
-			hit_positions.append(target)
+			if hit_pos == Vector3.ZERO:
+				hit_pos = origin + spread_dir * shoot_range * 0.5
+			spawn_tracer(tracer_start, hit_pos)
+			hit_positions.append(hit_pos)
 		else:
-			spawn_tracer(tracer_start, to)
+			var end_pos = origin + spread_dir * shoot_range
+			spawn_tracer(tracer_start, end_pos)
 
 	var muzzle_pos := cam.global_position + cam.global_transform.basis * muzzle_offset
 	spawn_flash(muzzle_pos)
@@ -175,80 +173,73 @@ func try_fire() -> bool:
 	# --- ЦЕПНАЯ РЕАКЦИЯ: каждая дробинка запускает свою цепь ---
 	if player and player.chain_count > 0 and not hit_positions.is_empty():
 		var effective_chain_level = int(player.chain_count * chain_limit_multiplier)
-		# Ограничиваем количество цепей, чтобы не лагало
 		var num_chains = min(hit_positions.size(), max_chains_per_shot)
 		for i in range(num_chains):
 			var start_pos = hit_positions[i]
 			var chain_dir = (start_pos - cam.global_position).normalized()
-			_fire_chain(start_pos, chain_dir, effective_chain_level, player, space_state, pellet_damage)
+			_fire_chain(start_pos, chain_dir, effective_chain_level, player, cam, pellet_damage)
 
 	return true
 
-
-func _fire_chain(start_pos: Vector3, start_dir: Vector3, chain_level: int, player: Node, space_state: PhysicsDirectSpaceState3D, chain_damage: float) -> void:
-	var cam := get_parent() as Camera3D
-
-	var current_pos: Vector3 = start_pos
-	var current_dir: Vector3 = start_dir
-	var current_target: Vector3 = current_pos + current_dir * shoot_range
-
-	var tracer_from: Vector3 = cam.global_position + cam.global_transform.basis * tracer_offset
-
+# ========== ИСПРАВЛЕНИЕ: параметр переименован в _player ==========
+func _fire_chain(start_pos: Vector3, start_dir: Vector3, chain_level: int, _player: Node, cam: Camera3D, chain_damage: float) -> void:
 	var max_bounces: int = chain_level
 	var chance: float = 0.5 + 0.1 * (max_bounces - 1)
 	var hits: int = max(1, max_bounces + 1)
 
-	var already_hit: Array = []
+	var current_pos: Vector3 = start_pos
+	var current_dir: Vector3 = start_dir
+	var tracer_from: Vector3 = cam.global_position + cam.global_transform.basis * tracer_offset
+	var already_hit_positions: Array[Vector3] = [start_pos]
 
-	for i in range(hits):
-		var query := PhysicsRayQueryParameters3D.create(current_pos, current_target)
-		if player:
-			query.exclude = [player.get_rid()]
-		var hit: Dictionary = space_state.intersect_ray(query)
+	for i in range(1, hits):  # первый выстрел уже сделан
+		# Ищем следующую цель
+		var all_positions := SwarmManager.get_all_mob_positions()
+		var nearest_dist := INF
+		var nearest_pos := Vector3.ZERO
+		for pos in all_positions:
+			var skip := false
+			for old in already_hit_positions:
+				if old.distance_to(pos) < 0.5:
+					skip = true
+					break
+			if skip:
+				continue
+			var d := current_pos.distance_to(pos)
+			if d < nearest_dist:
+				nearest_dist = d
+				nearest_pos = pos
 
-		if not hit.is_empty():
-			var c: Object = hit.collider
-			var hit_position: Vector3 = hit.position
-
-			spawn_tracer(tracer_from, hit_position)
-
-			if c != null and c.has_method("take_damage"):
-				c.take_damage(chain_damage)
-				already_hit.append(c)
-
-			if i == hits - 1:
-				break
-
-			if i >= 1 and randf() >= chance:
-				break
-
-			var enemies := get_tree().get_nodes_in_group("mob")
-			var closest_dist := INF
-			var closest_enemy: Node3D = null
-
-			for enemy in enemies:
-				if not is_instance_valid(enemy) or enemy in already_hit:
-					continue
-				var d := hit_position.distance_to(enemy.global_position)
-				if d < closest_dist:
-					closest_dist = d
-					closest_enemy = enemy
-
-			if closest_enemy:
-				current_dir = (closest_enemy.global_position - hit_position).normalized()
-				current_pos = hit_position + current_dir * 0.3
-				current_target = current_pos + current_dir * shoot_range
-				tracer_from = hit_position
-			else:
-				break
-		else:
-			spawn_tracer(tracer_from, current_target)
+		if nearest_pos == Vector3.ZERO:
 			break
 
+		# Проверяем шанс на цепь
+		if i > 1 and randf() >= chance:
+			break
+
+		# Перенаправляем луч на следующую цель
+		var dir_to_next = nearest_pos - current_pos
+		dir_to_next.y = 0.0
+		if dir_to_next.length() < 0.001:
+			break
+		current_dir = dir_to_next.normalized()
+		current_pos = current_pos + current_dir * 0.3
+
+		# Выстрел в следующую цель
+		var result = SwarmManager.damage_ray_with_hit(current_pos, current_dir, shoot_range, chain_damage)
+		var hit: bool = result[0]
+		var hit_pos: Vector3 = result[1]
+		if hit:
+			if hit_pos == Vector3.ZERO:
+				hit_pos = current_pos + current_dir * shoot_range * 0.5
+			spawn_tracer(tracer_from, hit_pos)
+			already_hit_positions.append(hit_pos)
+			tracer_from = hit_pos
+		else:
+			break
 
 func _on_fire_cooldown() -> void:
 	can_fire = true
-
 
 func _reload() -> void:
 	if is_reloading or ammo == magazine_size:
@@ -257,11 +248,9 @@ func _reload() -> void:
 	var timer = get_tree().create_timer(reload_time)
 	timer.timeout.connect(_on_reload_finished)
 
-
 func _on_reload_finished() -> void:
 	ammo = magazine_size
 	is_reloading = false
-
 
 func spawn_flash(pos: Vector3) -> void:
 	var flash: Node3D = FLASH_SCRIPT.new()
@@ -272,7 +261,6 @@ func spawn_flash(pos: Vector3) -> void:
 		world = get_parent().get_parent().get_parent()
 	world.add_child(flash)
 	flash.global_position = pos
-
 
 func spawn_tracer(from: Vector3, to: Vector3) -> void:
 	var tracer: Node3D = TRACER_SCRIPT.new()

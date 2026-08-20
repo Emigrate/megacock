@@ -1,13 +1,12 @@
 extends Node
-const GROUND_Y := 0.0   # <--- ОПУСТИЛИ НА 0.0
+const GROUND_Y := 0.0
 
-@export var max_mobs_total := 400
+@export var max_mobs_total := 1000
 @export var min_spawn_distance := 30.0
 @export var max_spawn_distance := 100.0
-@export var spawn_interval := 0.3
+@export var spawn_interval := 0.10
 
 var ghoul_swarm: GhoulSwarm = null
-var _mobs: Array = []
 var _fireballs: Array = [] 
 var _player: Node3D
 var _nav_map: RID = RID()
@@ -82,11 +81,20 @@ func _find_nav_recursive(node: Node) -> void:
 		_find_nav_recursive(child)
 		if _nav_map.is_valid(): return
 
-# Пустышки для совместимости
+# ==========================================================
+# ПРОКСИ-ФУНКЦИИ ДЛЯ МУЛЬТИМЕША
+# ==========================================================
 func register_fireball(fb): _fireballs.append(fb)
 func unregister_fireball(fb): _fireballs.erase(fb)
 func get_fireballs(): return _fireballs
-func get_nearby_fireballs(origin, radius): return []
+
+func get_nearby_fireballs(_origin: Vector3, _radius: float) -> Array:
+	return []
+
+func get_all_mob_positions() -> Array[Vector3]:
+	if ghoul_swarm:
+		return ghoul_swarm.get_all_mob_positions()
+	return []
 
 func clear_all():
 	if ghoul_swarm: ghoul_swarm.clear_all()
@@ -102,6 +110,11 @@ func damage_ray(origin, dir, max_range, damage):
 func get_hit_position(origin, dir, max_range):
 	if ghoul_swarm: return ghoul_swarm.get_hit_position(origin, dir, max_range)
 	return Vector3.ZERO
+
+func damage_ray_with_hit(origin: Vector3, dir: Vector3, m_range: float, dmg: float) -> Array:
+	if ghoul_swarm:
+		return ghoul_swarm.damage_ray_with_hit(origin, dir, m_range, dmg)
+	return [false, Vector3.ZERO]
 
 func melee_splash(origin: Vector3, atk_range: float, damage: int) -> int:
 	if ghoul_swarm:

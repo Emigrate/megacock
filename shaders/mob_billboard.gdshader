@@ -1,15 +1,17 @@
 shader_type spatial;
-render_mode blend_mix, depth_draw_opaque, cull_back, unshaded;
+render_mode cull_back, unshaded, depth_draw_opaque;
 
 uniform sampler2DArray tex_array : source_color, filter_nearest;
 uniform float frame_count = 15.0;
 
+// --- Настройка дальности видимости ---
+uniform float fade_start : hint_range(0.0, 300.0) = 25.0;   // с какой дистанции начинает темнеть
+uniform float fade_end   : hint_range(0.0, 500.0) = 150.0;  // на какой дистанции достигает минимума
+uniform float min_brightness : hint_range(0.0, 1.0) = 0.6;  // минимальная яркость (не даём уйти в 0.35 -> почти чёрный)
+
 void vertex() {
-	// Цилиндрический биллборд: спрайт всегда стоит вертикально,
-	// разворачивается к камере только по горизонтали
 	vec3 camera_pos = INV_VIEW_MATRIX[3].xyz;
 	vec3 world_pos = (MODEL_MATRIX * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
-
 	vec3 look_dir = vec3(camera_pos.x - world_pos.x, 0.0, camera_pos.z - world_pos.z);
 	float len = length(look_dir);
 	if (len > 0.0001) {
@@ -17,12 +19,9 @@ void vertex() {
 	} else {
 		look_dir = vec3(0.0, 0.0, 1.0);
 	}
-
 	vec3 up = vec3(0.0, 1.0, 0.0);
 	vec3 right = normalize(cross(up, look_dir));
 
-	// Сохраняем масштаб инстанса (из MODEL_MATRIX), применённый через
-	// multimesh instance transform, чтобы scale jitter из GDScript работал
 	float scale_x = length(MODEL_MATRIX[0].xyz);
 	float scale_y = length(MODEL_MATRIX[1].xyz);
 
@@ -32,20 +31,20 @@ void vertex() {
 		vec4(look_dir, 0.0),
 		MODEL_MATRIX[3]
 	);
-
 	MODELVIEW_MATRIX = VIEW_MATRIX * billboard_matrix;
 }
 
 void fragment() {
 	float layer = floor(COLOR.r * frame_count + 0.5);
 	vec4 tex = texture(tex_array, vec3(UV, layer));
-	ALBEDO = tex.rgb;
-	ALPHA = tex.a;
-	if (ALPHA < 0.5) discard;
 
-	// Затемнение по дистанции до камеры — визуально разделяет слои
-	// толпы (ближние ярче, дальние темнее), помогает глазу читать глубину
+	if (tex.a < 0.5) {
+		discard;
+	}
+
+	ALBEDO = tex.rgb;
+
 	float dist = length(VERTEX);
-	float fade = clamp(1.0 - (dist - 5.0) / 40.0, 0.35, 1.0);
+	float fade = clamp(1.0 - (dist - fade_start) / max(fade_end - fade_start, 0.001), min_brightness, 1.0);
 	ALBEDO *= fade;
 }

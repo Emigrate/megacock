@@ -18,7 +18,6 @@ var _original_position := Vector3.ZERO
 var _original_rotation := Vector3.ZERO
 var _damage_dealt := false
 
-
 func _ready() -> void:
 	_original_position = position
 	_original_rotation = rotation
@@ -33,7 +32,6 @@ func _ready() -> void:
 	if anim_player and anim_player.has_animation("idle"):
 		anim_player.play("idle")
 
-
 func _find_animation_player(node: Node) -> AnimationPlayer:
 	for child in node.get_children():
 		if child is AnimationPlayer:
@@ -43,16 +41,13 @@ func _find_animation_player(node: Node) -> AnimationPlayer:
 			return found
 	return null
 
-
 func set_bob(bob_x: float, bob_y: float, moving: bool) -> void:
 	_bob_x = bob_x
 	_bob_y = bob_y
 	_bob_moving = moving
 
-
 func set_yaw_input(yaw: float) -> void:
 	_yaw_input = yaw
-
 
 func _process(delta: float) -> void:
 	if not _is_animating:
@@ -62,7 +57,6 @@ func _process(delta: float) -> void:
 		_lean_cur = lerp(_lean_cur, clampf(-_yaw_input * 0.08, -0.15, 0.15), 1.0 - exp(-8.0 * delta))
 		rotation.z = _original_rotation.z + _lean_cur
 	_yaw_input = 0.0
-
 
 func try_fire() -> bool:
 	if not can_attack:
@@ -84,7 +78,6 @@ func try_fire() -> bool:
 		_is_animating = true
 		anim_player.play("attack")
 		
-		# --- ЗВУК ЗАМАХА (2D, на шину Shots) ---
 		AudioManager.play_axe_swing_2d()
 		
 		await get_tree().create_timer(hit_timing).timeout
@@ -107,12 +100,14 @@ func try_fire() -> bool:
 	
 	return true
 
-
 func _deal_damage() -> void:
 	if _damage_dealt:
 		return
 	var cam: Camera3D = get_parent() as Camera3D
 	if cam:
+		if not SwarmManager:
+			push_error("Axe: SwarmManager не найден!")
+			return
 		var count = SwarmManager.melee_splash(cam.global_position, attack_range, int(damage))
 		if count > 0:
 			_damage_dealt = true

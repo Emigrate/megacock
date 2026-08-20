@@ -9,6 +9,7 @@
 [ext_resource type="Texture2D" uid="uid://coyj10lu0lrpm" path="res://assets/textures/level/meat_floor.png" id="5_tefeu"]
 [ext_resource type="Script" uid="uid://b62kw7ul2ce6b" path="res://scripts/ghoul_swarm.gd" id="7_o6xl0"]
 [ext_resource type="Script" uid="uid://btjnjrt0wu5hj" path="res://scripts/mob_spawn.gd" id="8_tipki"]
+[ext_resource type="PackedScene" uid="uid://dbogcfl8u75e0" path="res://scenes/entity/exp_orb.tscn" id="9_choun"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_fqhjb"]
 
@@ -117,6 +118,7 @@ material = SubResource("StandardMaterial3D_lxk3t")
 
 [node name="GhoulSwarm" type="Node3D" parent="." unique_id=27463479]
 script = ExtResource("7_o6xl0")
+exp_orb_scene = ExtResource("9_choun")
 
 [node name="MobSpawn" type="Node3D" parent="." unique_id=335504569]
 script = ExtResource("8_tipki")

@@ -61,7 +61,6 @@ func set_numbers_enabled(value: bool) -> void:
 
 
 func spawn(damage: int, world_position: Vector3, is_chain: bool = false, target_id: int = -1) -> void:
-	print("[DamageNumberPool] spawn() called, numbers_enabled=", numbers_enabled)  # ОТЛАДКА
 	if not numbers_enabled:
 		return
 
