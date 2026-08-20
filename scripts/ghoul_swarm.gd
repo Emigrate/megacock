@@ -1,7 +1,7 @@
 extends Node3D
 class_name GhoulSwarm
 
-# ===== СТАТИЧЕСКИЕ ДАННЫЕ ТЕКСТУР И АНИМАЦИЙ (перенесено из ghoul.gd) =====
+# ===== СТАТИЧЕСКИЕ ДАННЫЕ ТЕКСТУР (остаются без изменений) =====
 const FRAME_PATHS := [
 	"res://assets/textures/ghoul/ghoul_attack1.png",
 	"res://assets/textures/ghoul/ghoul_attack2.png",
@@ -20,7 +20,7 @@ const FRAME_PATHS := [
 	"res://assets/textures/ghoul/ghoul_walking2.png",
 ]
 
-const ANIM := {
+const ANIM_BASE := {
 	"attack": {"start": 0,  "count": 3, "fps": 6.0,  "loop": false},
 	"death":  {"start": 3,  "count": 8, "fps": 8.0,  "loop": false},
 	"hit":    {"start": 11, "count": 2, "fps": 10.0, "loop": false},
@@ -62,21 +62,11 @@ static func _build_texture_array() -> Texture2DArray:
 	tex_array.create_from_images(normalized_images)
 	return tex_array
 
-static func frame_for(anim_name: String, timer: float) -> int:
-	var a = ANIM[anim_name]
-	var idx = int(timer * a.fps)
-	if a.loop: idx = idx % a.count
-	else: idx = min(idx, a.count - 1)
-	return a.start + idx
-
-static func anim_duration(anim_name: String) -> float:
-	return ANIM[anim_name].count / ANIM[anim_name].fps
-
 # ===== КОНЕЦ СТАТИЧЕСКИХ ДАННЫХ =====
 
 @export var max_ghouls := 2500
-@export var mesh_size := Vector2(5, 5)
-@export var move_speed := 20
+@export var mesh_size := Vector2(4, 4)
+@export var move_speed := 10
 @export var attack_range := 2.2
 @export var attack_interval := 0.8
 @export var attack_damage := 0
@@ -120,6 +110,13 @@ const MAX_CHECKED_NEIGHBORS := 18
 # --- BULK-BUFFER MULTIMESH ---
 const FLOATS_PER_INSTANCE := 16
 
+# ===== НОВЫЕ КРУТИЛКИ ДЛЯ СКОРОСТИ АНИМАЦИИ =====
+@export var walk_anim_speed: float = 1.5
+@export var attack_anim_speed: float = 1.3
+@export var hit_anim_speed: float = 1.5
+@export var death_anim_speed: float = 1.5
+# =================================================
+
 enum State { WALK, ATTACK, HIT, DEATH, DEAD }
 
 var multimesh: MultiMesh
@@ -148,6 +145,9 @@ var _stack_target_y: PackedFloat32Array = []
 var _stack_current_y: PackedFloat32Array = []
 var _stack_grid: Dictionary = {}
 
+# --- ДАННЫЕ АНИМАЦИЙ (нестатические, с учётом множителей) ---
+var _anim_data: Dictionary = {}
+
 func _ready() -> void:
 	_player = get_tree().get_first_node_in_group("player")
 	_foot_offset = mesh_size.y * 0.5
@@ -158,6 +158,24 @@ func _ready() -> void:
 	_sep_cache.resize(max_ghouls)
 	_stack_target_y.resize(max_ghouls)
 	_stack_current_y.resize(max_ghouls)
+	_init_anim_data()
+
+func _init_anim_data() -> void:
+	_anim_data = {}
+	for anim in ANIM_BASE:
+		var base = ANIM_BASE[anim]
+		var speed = 1.0
+		match anim:
+			"walk": speed = walk_anim_speed
+			"attack": speed = attack_anim_speed
+			"hit": speed = hit_anim_speed
+			"death": speed = death_anim_speed
+		_anim_data[anim] = {
+			"start": base.start,
+			"count": base.count,
+			"fps": base.fps * speed,
+			"loop": base.loop
+		}
 
 func _setup_arrays() -> void:
 	positions.resize(max_ghouls)
@@ -393,7 +411,7 @@ func _apply_stack_lerp(delta: float) -> void:
 			var speed = stack_lerp_speed_up if target > cur else stack_lerp_speed_down
 			_stack_current_y[i] = lerp(cur, target, clamp(speed * delta, 0.0, 1.0))
 
-# ---------- ЛОГИКА ДВИЖЕНИЯ ----------
+# ---------- ЛОГИКА ДВИЖЕНИЯ (с заменой вызовов на self) ----------
 func _physics_process(delta: float) -> void:
 	if not _player: return
 	var p_pos = _player.global_position
@@ -421,17 +439,17 @@ func _physics_process(delta: float) -> void:
 		anim_timer[i] += delta
 
 		if states[i] == State.DEATH:
-			if anim_timer[i] >= anim_duration("death"):
+			if anim_timer[i] >= self.anim_duration("death"):
 				alive_flags[i] = 0
 				free_list.append(i)
 			continue
 
 		if states[i] == State.HIT:
-			if anim_timer[i] >= anim_duration("hit"):
+			if anim_timer[i] >= self.anim_duration("hit"):
 				states[i] = State.WALK
 				anim_timer[i] = 0.0
 		elif states[i] == State.ATTACK:
-			if anim_timer[i] >= anim_duration("attack"):
+			if anim_timer[i] >= self.anim_duration("attack"):
 				states[i] = State.WALK
 				anim_timer[i] = 0.0
 
@@ -461,6 +479,20 @@ func _physics_process(delta: float) -> void:
 
 	_draw_all(p_pos)
 
+# ---------- НЕСТАТИЧЕСКИЕ ФУНКЦИИ АНИМАЦИИ ----------
+func frame_for(anim_name: String, timer: float) -> int:
+	var a = _anim_data[anim_name]
+	var idx = int(timer * a.fps)
+	if a.loop:
+		idx = idx % a.count
+	else:
+		idx = min(idx, a.count - 1)
+	return a.start + idx
+
+func anim_duration(anim_name: String) -> float:
+	var a = _anim_data[anim_name]
+	return a.count / a.fps
+
 # ---------- BULK-ОТРИСОВКА ----------
 func _draw_all(player_pos: Vector3) -> void:
 	var cam := get_viewport().get_camera_3d()
@@ -482,7 +514,7 @@ func _draw_all(player_pos: Vector3) -> void:
 		if should_draw:
 			var s = scales[i]
 			var draw_pos = positions[i] + Vector3(0, (_foot_offset + ground_offset) * s + _stack_current_y[i], 0)
-			var frame = frame_for(_current_anim_name(i), anim_timer[i])
+			var frame = self.frame_for(_current_anim_name(i), anim_timer[i])
 			var color_r = float(frame) / 15.0
 
 			_mm_buffer[base + 0] = s
