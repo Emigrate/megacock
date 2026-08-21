@@ -155,7 +155,6 @@ func try_fire() -> bool:
 	AudioManager.play_shot_2d()
 	return true
 
-# ========== ИСПРАВЛЕНИЕ: параметр переименован в _player ==========
 func _fire_chain(start_pos: Vector3, start_dir: Vector3, chain_level: int, _player: Node, cam: Camera3D) -> void:
 	var max_bounces: int = chain_level
 	var chance: float = 0.5 + 0.1 * (max_bounces - 1)
@@ -167,10 +166,13 @@ func _fire_chain(start_pos: Vector3, start_dir: Vector3, chain_level: int, _play
 	var already_hit_positions: Array[Vector3] = [start_pos]
 
 	for i in range(1, hits):  # первый выстрел уже сделан
-		# Ищем следующую цель
+		# Ищем следующую цель (горизонтально)
 		var all_positions := SwarmManager.get_all_mob_positions()
 		var nearest_dist := INF
 		var nearest_pos := Vector3.ZERO
+		var current_pos_xz = current_pos
+		current_pos_xz.y = 0.0
+
 		for pos in all_positions:
 			var skip := false
 			for old in already_hit_positions:
@@ -179,7 +181,9 @@ func _fire_chain(start_pos: Vector3, start_dir: Vector3, chain_level: int, _play
 					break
 			if skip:
 				continue
-			var d := current_pos.distance_to(pos)
+			var pos_xz = pos
+			pos_xz.y = 0.0
+			var d = current_pos_xz.distance_to(pos_xz)
 			if d < nearest_dist:
 				nearest_dist = d
 				nearest_pos = pos
@@ -191,9 +195,8 @@ func _fire_chain(start_pos: Vector3, start_dir: Vector3, chain_level: int, _play
 		if i > 1 and randf() >= chance:
 			break
 
-		# Перенаправляем луч на следующую цель
+		# Перенаправляем луч (полный 3D, без обнуления Y)
 		var dir_to_next = nearest_pos - current_pos
-		dir_to_next.y = 0.0
 		if dir_to_next.length() < 0.001:
 			break
 		current_dir = dir_to_next.normalized()

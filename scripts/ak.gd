@@ -152,10 +152,16 @@ func _fire_chain(origin: Vector3, dir: Vector3, chain_level: int, _player: Node,
 		if i == hits - 1: break
 		if i >= 1 and randf() >= chance: break
 
-		# Ищем следующую цель
+		# Ищем следующую цель. Горизонтальный (XZ) поиск ближайшей — нормальная
+		# эвристика "ближайший враг", но направление самого рикошета ниже
+		# считаем в полном 3D, иначе луч никогда не долетит до целей на
+		# другой высоте (например, летающих демонов).
 		var all_positions := SwarmManager.get_all_mob_positions()
 		var nearest_dist := INF
 		var nearest_pos := Vector3.ZERO
+		var hit_pos_xz = hit_pos
+		hit_pos_xz.y = 0.0
+
 		for pos in all_positions:
 			var skip := false
 			for old in already_hit_positions:
@@ -163,15 +169,22 @@ func _fire_chain(origin: Vector3, dir: Vector3, chain_level: int, _player: Node,
 					skip = true
 					break
 			if skip: continue
-			var d := hit_pos.distance_to(pos)
+
+			var pos_xz = pos
+			pos_xz.y = 0.0
+			var d := hit_pos_xz.distance_to(pos_xz)
 			if d < nearest_dist:
 				nearest_dist = d
 				nearest_pos = pos
 
 		if nearest_pos == Vector3.ZERO: break
 
+		# ВАЖНО: НЕ обнуляем Y здесь. nearest_pos хранит настоящую высоту цели
+		# (демоны летают на 8-25 юнитов выше земли, чем гули) — раньше
+		# принудительное dir_to_next.y = 0.0 заставляло рикошет лететь строго
+		# горизонтально, из-за чего луч проходил мимо любой приподнятой цели
+		# и чейн никогда не долетал до демонов.
 		var dir_to_next = nearest_pos - hit_pos
-		dir_to_next.y = 0.0
 		if dir_to_next.length() < 0.001: break
 		current_dir = dir_to_next.normalized()
 		current_pos = hit_pos + current_dir * 0.3

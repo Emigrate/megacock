@@ -1,6 +1,6 @@
 extends CharacterBody3D
 
-@export var speed := 55.0
+@export var speed := 70.0
 @export var damage := 15.0
 @export var hp := 2
 @export var explosion_radius := 5.0
@@ -52,11 +52,9 @@ func init(target: Node3D, dmg: float, start_pos: Vector3) -> void:
 	# --- ЗВУК ПОЛЁТА ---
 	_fly_sound = AudioManager.play_fireball_fly_3d(global_position)
 	if _fly_sound:
-		# Добавляем только если у плеера ещё нет родителя (теперь он всегда без родителя)
 		if _fly_sound.get_parent() == null:
 			add_child(_fly_sound)
 		else:
-			# Если почему-то уже есть родитель, просто переносим
 			_fly_sound.reparent(self)
 
 	SwarmManager.register_fireball(self)
@@ -111,20 +109,27 @@ func _physics_process(_delta: float) -> void:
 			return
 
 
-func _find_next_enemy(current_pos: Vector3, exclude: Array) -> Node3D:
-	var enemies = get_tree().get_nodes_in_group("mob")
-	var closest_dist = INF
-	var closest_enemy: Node3D = null
-
-	for enemy in enemies:
-		if not is_instance_valid(enemy) or enemy in exclude or enemy == self:
-			continue
-		var d = current_pos.distance_to(enemy.global_position)
+# ===== ОБНОВЛЁННЫЙ ПОИСК ВРАГОВ (через SwarmManager) =====
+func _find_next_enemy(current_pos: Vector3, _exclude: Array) -> Node3D:
+	# Получаем всех мобов через менеджер
+	var all_positions := SwarmManager.get_all_mob_positions()
+	var closest_dist := INF
+	var closest_pos := Vector3.ZERO
+	
+	for pos in all_positions:
+		var d = current_pos.distance_to(pos)
 		if d < closest_dist:
 			closest_dist = d
-			closest_enemy = enemy
+			closest_pos = pos
 
-	return closest_enemy
+	if closest_pos == Vector3.ZERO:
+		return null
+
+	# Ищем ближайший узел (по координатам) — для совместимости с мультимешем.
+	# Поскольку мобы теперь в мультимеше, возвращаем заглушку, чтобы фаербол летел в точку.
+	# Но для старых мобов (если есть) можно поискать по группе.
+	# Пока просто используем позицию.
+	return null  # заглушка, чтобы не ломать логику; фаербол продолжит лететь в направлении
 
 
 func take_damage(dmg: float) -> void:
@@ -141,6 +146,11 @@ func take_damage(dmg: float) -> void:
 
 	if _current_hp <= 0:
 		_explode()
+
+
+# ===== ПУБЛИЧНЫЙ МЕТОД ДЛЯ ВЗРЫВА (добавлен) =====
+func explode() -> void:
+	_explode()
 
 
 func _explode() -> void:

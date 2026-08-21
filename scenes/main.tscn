@@ -7,9 +7,11 @@
 [ext_resource type="Texture2D" uid="uid://c08ppkjy7d4h3" path="res://assets/textures/level/block2.png" id="4_tefeu"]
 [ext_resource type="Texture2D" uid="uid://kb1n4ikibq8w" path="res://assets/textures/player/hitmarker.png" id="5_tbgi4"]
 [ext_resource type="Texture2D" uid="uid://coyj10lu0lrpm" path="res://assets/textures/level/meat_floor.png" id="5_tefeu"]
-[ext_resource type="Script" uid="uid://b62kw7ul2ce6b" path="res://scripts/ghoul_swarm.gd" id="7_o6xl0"]
+[ext_resource type="Script" uid="uid://b62kw7ul2ce6b" path="res://scripts/swarm_ghoul.gd" id="7_o6xl0"]
 [ext_resource type="Script" uid="uid://btjnjrt0wu5hj" path="res://scripts/mob_spawn.gd" id="8_tipki"]
 [ext_resource type="PackedScene" uid="uid://dbogcfl8u75e0" path="res://scenes/entity/exp_orb.tscn" id="9_choun"]
+[ext_resource type="Script" uid="uid://p6s0smlwlyuo" path="res://scripts/swarm_wrathdemon.gd" id="10_ya4ey"]
+[ext_resource type="Script" uid="uid://v4nbxthuvi6m" path="res://scripts/swarm_skeleton.gd" id="11_eb6dy"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_fqhjb"]
 
@@ -119,6 +121,21 @@ material = SubResource("StandardMaterial3D_lxk3t")
 [node name="GhoulSwarm" type="Node3D" parent="." unique_id=27463479]
 script = ExtResource("7_o6xl0")
 exp_orb_scene = ExtResource("9_choun")
+
+[node name="WrathDemonSwarm" type="Node3D" parent="." unique_id=1044874346]
+script = ExtResource("10_ya4ey")
+exp_orb_scene = ExtResource("9_choun")
+exp_drop_min = 10
+exp_drop_max = 20
+attack_anim_speed = 1.3
+hit_anim_speed = 1.5
+death_anim_speed = 1.5
+
+[node name="SkeletonSwarm" type="Node3D" parent="." unique_id=611403129]
+script = ExtResource("11_eb6dy")
+exp_orb_scene = ExtResource("9_choun")
+exp_drop_min = 10
+exp_drop_max = 20
 
 [node name="MobSpawn" type="Node3D" parent="." unique_id=335504569]
 script = ExtResource("8_tipki")
