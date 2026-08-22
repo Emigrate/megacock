@@ -117,6 +117,16 @@ const FLOATS_PER_INSTANCE := 16
 @export var death_anim_speed: float = 1.5
 # =================================================
 
+# ===== НОКБЭК (отбрасывание от взрывов/ударов) =====
+@export var knockback_friction := 1   # как быстро гасится горизонтальная скорость (меньше = летит дальше)
+@export var knockback_gravity := 55  # как быстро падает после подброса (меньше = дольше в воздухе / выше траектория)
+
+# --- ГЛОБАЛЬНЫЕ МНОЖИТЕЛИ НОКБЭКА (то, чего тебе не хватало) ---
+@export var knockback_force_multiplier := 1  # общий множитель силы -> крути, чтобы летели ДАЛЬШЕ
+@export var knockback_up_ratio := 1         # дефолтная доля силы, уходящая ВВЕРХ -> крути, чтобы летели ВЫШЕ
+@export var knockback_min_force := 1         # минимальная гарантированная сила нокбэка (0 = выключено)
+# =====================================================
+
 enum State { WALK, ATTACK, HIT, DEATH, DEAD }
 
 var multimesh: MultiMesh
@@ -127,6 +137,7 @@ var anim_timer: PackedFloat32Array
 var attack_cd: PackedFloat32Array
 var alive_flags: PackedByteArray
 var scales: PackedFloat32Array
+var knockback_velocity: PackedVector3Array
 var free_list: Array[int] = []
 
 var _grid: Dictionary = {}
@@ -185,6 +196,7 @@ func _setup_arrays() -> void:
 	attack_cd.resize(max_ghouls)
 	alive_flags.resize(max_ghouls)
 	scales.resize(max_ghouls)
+	knockback_velocity.resize(max_ghouls)
 	for i in range(max_ghouls):
 		alive_flags[i] = 0
 		free_list.append(max_ghouls - 1 - i)
@@ -224,6 +236,7 @@ func spawn(pos: Vector3) -> void:
 	attack_cd[i] = 0.0
 	alive_flags[i] = 1
 	scales[i] = randf_range(0.9, 1.1)
+	knockback_velocity[i] = Vector3.ZERO
 	_stack_target_y[i] = 0.0
 	_stack_current_y[i] = 0.0
 
@@ -240,7 +253,7 @@ func damage_ray_with_hit(origin: Vector3, dir: Vector3, m_range: float, dmg: flo
 		var proj = to_mob.dot(dir)
 		if proj < 0 or proj > m_range: continue
 		var closest = origin + dir * proj
-		if closest.distance_to(center) < 2.8 and proj < best_dist:
+		if closest.distance_to(center) < 1.2 and proj < best_dist:
 			best_dist = proj
 			best_i = i
 			best_center = closest   # точка попадания
@@ -311,6 +324,26 @@ func take_damage(index: int, amount: float) -> void:
 	AudioManager.play_hitmarker()
 	_show_hitmarker()
 	# ====================
+
+# ---------- НОКБЭК ----------
+# up_ratio = -1.0 (по умолчанию) означает "использовать глобальный knockback_up_ratio"
+func apply_knockback(index: int, source_pos: Vector3, force: float, up_ratio: float = -1.0) -> void:
+	if index < 0 or index >= max_ghouls: return
+	if alive_flags[index] == 0: return
+
+	if up_ratio < 0.0:
+		up_ratio = knockback_up_ratio
+
+	var final_force = force * knockback_force_multiplier
+	if knockback_min_force > 0.0:
+		final_force = max(final_force, knockback_min_force)
+
+	var dir = positions[index] - source_pos
+	dir.y = 0.0
+	if dir.length() < 0.01:
+		dir = Vector3(randf_range(-1,1), 0, randf_range(-1,1))
+	dir = dir.normalized()
+	knockback_velocity[index] = dir * final_force + Vector3.UP * (final_force * up_ratio)
 
 # ---------- ОПТИМИЗИРОВАННАЯ СЕПАРАЦИЯ ----------
 func _rebuild_grid():
@@ -437,6 +470,17 @@ func _physics_process(delta: float) -> void:
 		if alive_flags[i] == 0: continue
 
 		anim_timer[i] += delta
+
+		# ===== ПРИМЕНЯЕМ НОКБЭК (работает всегда, даже во время анимации смерти) =====
+		if knockback_velocity[i].length_squared() > 0.0001 or positions[i].y > 0.0:
+			positions[i] += knockback_velocity[i] * delta
+			knockback_velocity[i].y -= knockback_gravity * delta
+			knockback_velocity[i].x = move_toward(knockback_velocity[i].x, 0.0, knockback_friction * delta)
+			knockback_velocity[i].z = move_toward(knockback_velocity[i].z, 0.0, knockback_friction * delta)
+			if positions[i].y <= 0.0:
+				positions[i].y = 0.0
+				knockback_velocity[i] = Vector3.ZERO
+		# ============================================================================
 
 		if states[i] == State.DEATH:
 			if anim_timer[i] >= self.anim_duration("death"):
@@ -584,12 +628,14 @@ func melee_splash(origin: Vector3, atk_range: float, damage: int) -> int:
 			hit_count += 1
 	return hit_count
 
-func aoe_damage(center: Vector3, radius: float, damage: int) -> int:
+func aoe_damage(center: Vector3, radius: float, damage: int, knockback_force: float = 0.0, up_ratio: float = -1.0) -> int:
 	var killed = 0
 	for i in range(max_ghouls):
 		if not _is_targetable(i): continue
 		var center_pos = positions[i] + Vector3(0, _foot_offset + _stack_current_y[i], 0)
 		if center.distance_to(center_pos) < radius:
 			take_damage(i, damage)
+			if knockback_force > 0.0:
+				apply_knockback(i, center, knockback_force, up_ratio)
 			killed += 1
 	return killed

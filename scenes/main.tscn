@@ -10,7 +10,9 @@
 [ext_resource type="Script" uid="uid://b62kw7ul2ce6b" path="res://scripts/swarm_ghoul.gd" id="7_o6xl0"]
 [ext_resource type="Script" uid="uid://btjnjrt0wu5hj" path="res://scripts/mob_spawn.gd" id="8_tipki"]
 [ext_resource type="PackedScene" uid="uid://dbogcfl8u75e0" path="res://scenes/entity/exp_orb.tscn" id="9_choun"]
+[ext_resource type="Script" uid="uid://bx5yijik5py5d" path="res://scripts/swarm_beholder.gd" id="10_trceg"]
 [ext_resource type="Script" uid="uid://p6s0smlwlyuo" path="res://scripts/swarm_wrathdemon.gd" id="10_ya4ey"]
+[ext_resource type="PackedScene" uid="uid://cruanskbtl72p" path="res://scenes/entity/explosion.tscn" id="11_a8y0u"]
 [ext_resource type="Script" uid="uid://v4nbxthuvi6m" path="res://scripts/swarm_skeleton.gd" id="11_eb6dy"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_fqhjb"]
@@ -122,6 +124,13 @@ material = SubResource("StandardMaterial3D_lxk3t")
 script = ExtResource("7_o6xl0")
 exp_orb_scene = ExtResource("9_choun")
 
+[node name="BeholderSwarm" type="Node3D" parent="." unique_id=306537950]
+script = ExtResource("10_trceg")
+mesh_size = Vector2(4, 4)
+initial_hp = 30.0
+explosion_scene = ExtResource("11_a8y0u")
+separation_dist = 3.0
+
 [node name="WrathDemonSwarm" type="Node3D" parent="." unique_id=1044874346]
 script = ExtResource("10_ya4ey")
 exp_orb_scene = ExtResource("9_choun")
@@ -139,3 +148,7 @@ exp_drop_max = 20
 
 [node name="MobSpawn" type="Node3D" parent="." unique_id=335504569]
 script = ExtResource("8_tipki")
+max_mobs_total = null
+min_spawn_distance = null
+max_spawn_distance = null
+spawn_interval = null

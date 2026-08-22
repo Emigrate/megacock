@@ -2,13 +2,14 @@ extends Node
 const GROUND_Y := 0.0
 
 @export var max_mobs_total := 1000
-@export var min_spawn_distance := 30.0
+@export var min_spawn_distance := 70
 @export var max_spawn_distance := 100.0
-@export var spawn_interval := 0.10
+@export var spawn_interval := 0.5
 
 var ghoul_swarm: GhoulSwarm = null
 var demon_swarm: DemonSwarm = null
 var skeleton_swarm: SkeletonSwarm = null
+var beholder_swarm: BeholderSwarm = null
 var _fireballs: Array = [] 
 var _player: Node3D
 var _nav_map: RID = RID()
@@ -33,6 +34,9 @@ func set_demon_swarm(swarm: DemonSwarm) -> void:
 func set_skeleton_swarm(swarm: SkeletonSwarm) -> void:
 	skeleton_swarm = swarm
 
+func set_beholder_swarm(swarm: BeholderSwarm) -> void:
+	beholder_swarm = swarm
+
 func get_total_alive() -> int:
 	var count = 0
 	if ghoul_swarm:
@@ -41,6 +45,8 @@ func get_total_alive() -> int:
 		count += demon_swarm.get_alive_count()
 	if skeleton_swarm:
 		count += skeleton_swarm.get_alive_count()
+	if beholder_swarm:
+		count += beholder_swarm.get_alive_count()
 	return count
 
 func get_count() -> int:
@@ -60,6 +66,10 @@ func _on_spawn_tick() -> void:
 	# Спавн скелетов (редкие)
 	if randf() < 0.08:
 		_spawn_skeleton()
+	
+	# Спавн бехолдеров-камикадзе (редкие)
+	if randf() < 0.3:
+		_spawn_beholder()
 
 func _spawn_ghoul() -> void:
 	if ghoul_swarm == null: return
@@ -78,6 +88,12 @@ func _spawn_skeleton() -> void:
 	var pos = _get_spawn_position()
 	if pos == Vector3.ZERO: return
 	skeleton_swarm.spawn(pos)
+
+func _spawn_beholder() -> void:
+	if beholder_swarm == null: return
+	var pos = _get_spawn_position()
+	if pos == Vector3.ZERO: return
+	beholder_swarm.spawn(pos)
 
 func _get_spawn_position() -> Vector3:
 	if _player == null: return Vector3.ZERO
@@ -134,6 +150,8 @@ func get_all_mob_positions() -> Array[Vector3]:
 		res.append_array(demon_swarm.get_all_mob_positions())
 	if skeleton_swarm:
 		res.append_array(skeleton_swarm.get_all_mob_positions())
+	if beholder_swarm:
+		res.append_array(beholder_swarm.get_all_mob_positions())
 	# Добавляем живые фаерболы
 	for fb in _fireballs:
 		if is_instance_valid(fb) and not fb.is_exploded():
@@ -144,11 +162,13 @@ func clear_all():
 	if ghoul_swarm: ghoul_swarm.clear_all()
 	if demon_swarm: demon_swarm.clear_all()
 	if skeleton_swarm: skeleton_swarm.clear_all()
+	if beholder_swarm: beholder_swarm.clear_all()
 
 func spawn(pos):
 	if ghoul_swarm: ghoul_swarm.spawn(pos)
 	if demon_swarm: demon_swarm.spawn(pos)
 	if skeleton_swarm: skeleton_swarm.spawn(pos)
+	if beholder_swarm: beholder_swarm.spawn(pos)
 
 func damage_ray(origin, dir, max_range, damage):
 	if ghoul_swarm and ghoul_swarm.damage_ray(origin, dir, max_range, damage):
@@ -156,6 +176,8 @@ func damage_ray(origin, dir, max_range, damage):
 	if demon_swarm and demon_swarm.damage_ray(origin, dir, max_range, damage):
 		return true
 	if skeleton_swarm and skeleton_swarm.damage_ray(origin, dir, max_range, damage):
+		return true
+	if beholder_swarm and beholder_swarm.damage_ray(origin, dir, max_range, damage):
 		return true
 	return false
 
@@ -175,6 +197,10 @@ func get_hit_position(origin, dir, max_range):
 		var hit = skeleton_swarm.get_hit_position(origin, dir, max_range)
 		if hit != Vector3.ZERO and origin.distance_to(hit) < best_dist:
 			res = hit
+	if beholder_swarm:
+		var hit = beholder_swarm.get_hit_position(origin, dir, max_range)
+		if hit != Vector3.ZERO and origin.distance_to(hit) < best_dist:
+			res = hit
 	return res
 
 func damage_ray_with_hit(origin: Vector3, dir: Vector3, m_range: float, dmg: float) -> Array:
@@ -191,6 +217,11 @@ func damage_ray_with_hit(origin: Vector3, dir: Vector3, m_range: float, dmg: flo
 	# Проверяем скелетов
 	if skeleton_swarm:
 		var result = skeleton_swarm.damage_ray_with_hit(origin, dir, m_range, dmg)
+		if result[0]:
+			return result
+	# Проверяем бехолдеров
+	if beholder_swarm:
+		var result = beholder_swarm.damage_ray_with_hit(origin, dir, m_range, dmg)
 		if result[0]:
 			return result
 	# Проверяем фаерболы
@@ -225,14 +256,21 @@ func melee_splash(origin: Vector3, atk_range: float, damage: int) -> int:
 		count += demon_swarm.melee_splash(origin, atk_range, damage)
 	if skeleton_swarm:
 		count += skeleton_swarm.melee_splash(origin, atk_range, damage)
+	if beholder_swarm:
+		count += beholder_swarm.melee_splash(origin, atk_range, damage)
 	return count
 
-func aoe_damage(center: Vector3, radius: float, damage: int) -> int:
+func aoe_damage(center: Vector3, radius: float, damage: int, knockback_force: float = 0.0, up_ratio: float = -1.0) -> int:
 	var count = 0
 	if ghoul_swarm:
-		count += ghoul_swarm.aoe_damage(center, radius, damage)
+		# у гулей есть система нокбэка -> прокидываем force/up_ratio
+		count += ghoul_swarm.aoe_damage(center, radius, damage, knockback_force, up_ratio)
 	if demon_swarm:
+		# TODO: добавить knockback_force/up_ratio сюда, если у demon_swarm появится своя система нокбэка
 		count += demon_swarm.aoe_damage(center, radius, damage)
 	if skeleton_swarm:
+		# TODO: добавить knockback_force/up_ratio сюда, если у skeleton_swarm появится своя система нокбэка
 		count += skeleton_swarm.aoe_damage(center, radius, damage)
+	if beholder_swarm:
+		count += beholder_swarm.aoe_damage(center, radius, damage)
 	return count
